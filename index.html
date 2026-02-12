@@ -7,7 +7,7 @@
   <title>MDict Online Pro</title>
   
   <style>
-    /* --- 界面样式 (保持不变) --- */
+    /* --- 界面样式 (不变) --- */
     :root {
       --primary: #007AFF;
       --bg-body: #F5F5F7;
@@ -82,9 +82,7 @@
     #definition b, #definition strong { color: var(--primary); font-weight: 700; }
     #definition i, #definition em { color: #FF2D55; font-style: italic; margin-right: 4px; }
     #definition a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed rgba(0,122,255,0.3); }
-    
     #definition img { max-width: 100%; height: auto; display: block; margin: 10px auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    #definition a[href^="sound:"] { display: none !important; }
     
     .empty-hint { text-align: center; color: #C7C7CC; margin-top: 60px; }
   </style>
@@ -138,7 +136,7 @@
         console.error(err);
         const status = document.getElementById('status-area');
         if (status) { status.innerHTML = 'System Error'; status.className = 'error'; }
-        alert("Script Error: " + err.requireType + "\nModule: " + err.requireModules);
+        alert("Module Error: " + err.requireModules);
     };
 
     require(['jquery', 'mdict-parser', 'mdict-renderer', 'bluebird'], function($, MdictParser, MdictRenderer, Promise) {
@@ -211,48 +209,34 @@
         }
       }
 
-      // 🔴 修复后的搜索逻辑：Search -> Lookup
       $btn.click(function() {
         const query = $input.val().trim();
         if (!query || !mdictInstance) return;
         
         $def.html('<div style="text-align:center; color:#999; margin-top:40px;">Searching...</div>');
         
-        // 1. 先搜索 (Search)，获取候选列表
-        mdictInstance.search({phrase: query, max: 10}).then(function(candidates) {
-            console.log("Search results:", candidates);
-            
-            if (!candidates || candidates.length === 0) {
-                 $def.html('<div style="text-align:center; margin-top:40px; color:#FF9500;">No definition found</div>');
-                 return;
-            }
+        // 🔴 核心修复：直接使用 lookup 并直接 append 结果
+        mdictInstance.lookup(query).then(function($content) {
+             console.log("Result:", $content); // 调试看控制台
+             
+             // 库返回的是一个 jQuery 对象，直接清空容器并添加进去
+             $def.empty().append($content);
+             
+             // 处理内部链接
+             $def.find('a').on('click', function(e) {
+                 const href = $(this).attr('href');
+                 if (href && href.substring(0, 8) === 'entry://') {
+                     e.preventDefault();
+                     const word = href.substring(8).replace(/^[/\\]/, '').replace(/[/\\]$/, '');
+                     $input.val(word);
+                     $btn.click();
+                 }
+             });
 
-            // 2. 取第一个结果的 offset 进行精确查询 (Lookup)
-            // candidates[0] 通常是 { keyText: "apple", offset: 12345 }
-            const bestMatch = candidates[0];
-            
-            // 3. 调用 lookup
-            mdictInstance.lookup(bestMatch.keyText, bestMatch.offset).then(function($content) {
-                // 🔴 关键点：$content 就是返回的 jQuery 对象，直接 append 即可
-                // 不需要找 .definition 属性
-                $def.empty().append($content);
-                
-                // 处理点击跳转
-                $def.find('a').on('click', function(e) {
-                    const href = $(this).attr('href');
-                    if (href && href.startsWith('entry://')) {
-                        e.preventDefault();
-                        const word = href.substring(8).replace(/^[/\\]/, '').replace(/[/\\]$/, '');
-                        $input.val(word);
-                        $btn.click();
-                    }
-                });
-                
-            }, function(err) {
-                console.error(err);
-                $def.html('<div style="color:red; text-align:center;">Lookup Error</div>');
-            });
-
+        }, function(err) {
+             console.error("Lookup Error:", err);
+             // 如果找不到，库可能会 reject，也可能返回空
+             $def.html('<div style="text-align:center; margin-top:40px; color:#FF9500;">No definition found</div>');
         });
       });
 
