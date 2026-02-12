@@ -7,7 +7,7 @@
   <title>MDict Online Pro</title>
   
   <style>
-    /* --- 界面样式 (保持美观) --- */
+    /* --- 界面样式 --- */
     :root {
       --primary: #007AFF;
       --bg-body: #F5F5F7;
@@ -79,7 +79,6 @@
 
     #definition { flex: 1; overflow-y: auto; padding: 24px; line-height: 1.6; font-size: 16px; -webkit-overflow-scrolling: touch; }
     
-    /* 内容美化 */
     #definition b, #definition strong { color: var(--primary); font-weight: 700; }
     #definition i, #definition em { color: #FF2D55; font-style: italic; margin-right: 4px; }
     #definition a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed rgba(0,122,255,0.3); }
@@ -114,22 +113,22 @@
   <script src="require.js"></script>
   
   <script>
-    // 🔴 1. 修复配置：把所有依赖文件都注册进去
+    // 🔴 关键修复：补全所有依赖文件名
     require.config({
       baseUrl: '.',
       paths: {
         'jquery': 'jquery-1.11.3.min',
         'bluebird': 'bluebird.min',
-        // 核心修复点：添加 bitstring 和 pako，并修正 lzo 路径
         'lzo': 'minilzo-decompress.min',
         'ripemd128': 'ripemd128.min',
         'speex': 'speex.min',
-        'bitstring': 'bitstring.min',   // <-- 之前缺了这个
-        'pako': 'pako_inflate.min'      // <-- 之前缺了这个
+        'bitstring': 'bitstring.min',
+        'pako': 'pako_inflate.min',
+        'pcmdata': 'pcmdata.min',          // <-- 修复点：加上了 .min
+        'murmurhash3': 'murmurhash3.min'   // <-- 预防点：防止下一个报错是这个
       }
     });
 
-    // 🔴 2. 增加错误捕获：如果还缺文件，直接弹窗提示
     requirejs.onError = function (err) {
         console.error(err);
         const status = document.getElementById('status-area');
@@ -142,12 +141,11 @@
             def.innerHTML = `<div style="color:red; text-align:center; padding:20px;">
                 <strong>System Error:</strong> ${err.requireType}<br>
                 Missing module: <b>${err.requireModules}</b><br>
-                <small>请检查 GitHub 仓库是否有名为 ${err.requireModules}.js 的文件</small>
+                <small>Hint: Check if <b>${err.requireModules}.js</b> matches your repo file name.</small>
             </div>`;
         }
     };
 
-    // 3. 主逻辑
     require(['jquery', 'mdict-parser', 'mdict-renderer', 'bluebird'], function($, MdictParser, MdictRenderer, Promise) {
       
       const MDX_URL = 'dict.mdx';
@@ -221,8 +219,6 @@
           $input.prop('disabled', false).attr('placeholder', 'Type a word...');
           $btn.prop('disabled', false);
           $input.focus();
-          
-          // 清空初始提示
           $('.empty-hint').text('Type a word to start');
 
         } catch (err) {
@@ -231,7 +227,7 @@
           $pTrack.hide();
           $def.html(`<div style="text-align:center; padding:20px; color:red;">
             <strong>Load Failed:</strong> ${err.message}<br>
-            <small>Please check if <b>dict.mdx</b> exists in repo.</small>
+            <small>Check if <b>dict.mdx</b> exists in repo.</small>
           </div>`);
         }
       }
