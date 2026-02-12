@@ -3,216 +3,259 @@
 <html>
 <head>
   <meta name="description" content="MDict JS">
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MDict JS Pro</title>
   
   <link rel="stylesheet" type="text/css" href="selectize.default.css">
-  <meta charset="utf-8">
-  <title>MDict JS Online</title>
   
   <style>
-    /* --- 1. 全局重置与现代字体 --- */
+    /* --- 1. 全局重置与变量 --- */
     :root {
-        --primary: #1A4FDD;
-        --bg: #F5F7FA;
-        --card-bg: #FFFFFF;
-        --text: #333;
-        --border-radius: 8px;
-        --shadow: 0 4px 12px rgba(0,0,0,0.08);
+        --primary: #007AFF;
+        --bg-page: #F5F5F7;
+        --bg-card: #FFFFFF;
+        --text-main: #1D1D1F;
+        --text-sub: #86868B;
+        --border: #E5E5EA;
+        --radius: 16px;
+        --shadow: 0 10px 40px rgba(0,0,0,0.08);
     }
-    
+
     body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        background-color: var(--bg);
-        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+        background-color: var(--bg-page);
+        color: var(--text-main);
         margin: 0;
         padding: 20px;
+        min-height: 100vh;
         display: flex;
         justify-content: center;
-        min-height: 100vh;
+        /* align-items: center;  如果想垂直居中取消注释 */
     }
 
-    /* --- 2. 容器卡片化 --- */
-    /* 我们用一个伪容器包裹内容，或者直接对 body 进行布局限制，
-       但为了不破坏原有DOM结构，我们直接样式化 body 下的元素 */
-    
-    /* 为了模拟卡片效果，我们创建一个视觉上的容器 */
-    body::before {
-        content: "";
-        position: fixed;
-        top: 0; left: 0; width: 100%; height: 100%;
-        z-index: -1;
-    }
-
-    /* 把所有内容限制在一个最大宽度内，居中显示 */
-    body > * {
-        max-width: 800px;
-        margin-left: auto;
-        margin-right: auto;
-        position: relative; /* 确保 z-index 有效 */
-    }
-
-    /* 这是一个隐式的容器样式 */
-    /* 我们无法添加 div wrapper，所以只能尽量让元素看起来像是在一个容器里 */
-    
-    /* --- 3. 控件美化 --- */
-    
-    /* 文件选择器美化 */
-    #dictfile {
-        display: block;
+    /* --- 2. 主容器卡片 --- */
+    .container {
         width: 100%;
-        padding: 15px;
-        background: var(--card-bg);
-        border: 2px dashed #ccc;
-        border-radius: var(--border-radius);
-        margin-bottom: 20px;
-        cursor: pointer;
+        max-width: 720px;
+        background: var(--bg-card);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 30px;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+    }
+
+    h2.app-title {
+        margin: 0 0 24px 0;
+        text-align: center;
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+    }
+
+    /* --- 3. 文件上传美化 --- */
+    .file-upload-wrapper {
+        margin-bottom: 24px;
+        text-align: center;
+        padding: 20px;
+        border: 2px dashed var(--border);
+        border-radius: 12px;
         transition: 0.3s;
+        background: #FAFAFA;
     }
-    #dictfile:hover {
+    .file-upload-wrapper:hover {
         border-color: var(--primary);
-        background: #F0F4FF;
+        background: #F0F7FF;
+    }
+    
+    /* 隐藏原生丑陋的 input，但不破坏功能 */
+    #dictfile {
+        display: none; 
+    }
+    /* 用 Label 替代点击 */
+    .file-upload-label {
+        cursor: pointer;
+        display: block;
+        color: var(--primary);
+        font-weight: 600;
+        font-size: 15px;
+    }
+    .file-upload-hint {
+        display: block;
+        margin-top: 6px;
+        font-size: 12px;
+        color: var(--text-sub);
     }
 
-    /* 输入框与按钮容器 */
-    p { 
-        display: flex; 
-        gap: 10px; 
-        margin: 15px 0; 
-        align-items: center; 
+    /* --- 4. 搜索栏区域 --- */
+    .search-wrapper {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 16px;
     }
 
-    /* 输入框美化 */
     #word {
         flex: 1;
-        padding: 12px 15px;
-        font-size: 16px;
-        border: 1px solid #ddd;
-        border-radius: var(--border-radius);
-        box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
-        transition: 0.3s;
+        height: 48px;
+        padding: 0 16px;
+        font-size: 17px;
+        border: 1px solid #D1D1D6;
+        border-radius: 12px;
+        background: #F2F2F7;
+        transition: 0.2s;
+        /* 覆盖 selectize 可能带来的样式 */
+        box-shadow: none; 
     }
     #word:focus {
+        background: #fff;
         border-color: var(--primary);
         outline: none;
-        box-shadow: 0 0 0 3px rgba(26, 79, 221, 0.1);
     }
 
-    /* 按钮美化 (保留原有的条纹动画逻辑，只改基础样式) */
     #btnLookup {
-        height: 44px !important; /* 覆盖原有样式 */
-        padding: 0 25px !important;
-        font-size: 14px !important;
-        font-weight: 600 !important;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        border-radius: var(--border-radius) !important;
-        cursor: pointer;
+        height: 48px;
+        padding: 0 24px;
+        border: none;
+        border-radius: 12px;
         background-color: var(--primary);
         color: white;
-        border: none !important;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.15);
-    }
-    #btnLookup:disabled {
-        background-color: #ccc !important;
-        cursor: not-allowed;
-        box-shadow: none;
-    }
-
-    /* 说明文字美化 */
-    p[style*="font-size: 12px"] {
-        background: #FFF8E1;
-        padding: 10px 15px;
-        border-radius: 6px;
-        border-left: 4px solid #FFC107;
-        color: #664d03 !important;
-        font-style: normal !important;
-        margin-top: 20px;
-    }
-    ul { margin: 5px 0 0 20px; padding: 0; }
-    li { margin-bottom: 3px; }
-
-    /* --- 4. 结果展示区美化 --- */
-    
-    #definition {
-        background: var(--card-bg);
-        padding: 30px;
-        margin-top: 25px;
-        border-radius: var(--border-radius);
-        box-shadow: var(--shadow);
-        min-height: 200px;
-        line-height: 1.6;
         font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: 0.2s;
+        /* 覆盖原有的样式 */
+        vertical-align: middle; 
+        border-width: 0;
     }
-
-    /* 词典标题悬浮修正 */
-    #dict-title {
-        position: static !important; /* 取消绝对定位，改为流式布局 */
-        text-align: right;
-        margin-bottom: 5px;
-        color: #888;
-        font-weight: bold;
-        background: transparent;
-    }
-
-    /* 词典内容通用修正 (不改逻辑，只改显示) */
-    #definition b { color: var(--primary); }
-    #definition .pos { color: #d35400; font-style: italic; margin-right: 5px; }
-    #definition img { max-width: 100%; height: auto; display: block; margin: 10px 0; border-radius: 4px; }
     
-    /* --- 5. 原有的条纹动画 (保留) --- */
-    .stripes {
-        background-color: #1A4FDD;
-        color: white;
-        border-color: #33D;
-        background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.34) 25%, transparent 25%,
-                            transparent 50%, rgba(255, 255, 255, 0.34) 50%, rgba(255, 255, 255, 0.34) 75%,
-                            transparent 75%, transparent);         
-        background-size: 30px 30px;
-        animation: animate-stripes 1s linear infinite;    
-    }
-    @keyframes animate-stripes { 
-        0% {background-position: 0 0;} 100% {background-position: 60px 0;}
+    #btnLookup:hover { opacity: 0.9; }
+    #btnLookup:active { transform: scale(0.96); }
+    #btnLookup:disabled { 
+        background-color: #C7C7CC; 
+        cursor: not-allowed; 
+        opacity: 1; 
     }
 
-    /* Selectize 修正 */
-    .selectize-control { width: 100%; }
-    .selectize-input { 
-        border-radius: var(--border-radius) !important; 
-        padding: 12px 15px !important;
-        box-shadow: none !important;
-        border-color: #ddd !important;
+    /* 加载条动画 (保留原有逻辑 class="stripes") */
+    .stripes {
+        background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0.2) 75%, transparent 75%, transparent) !important;
+        background-size: 20px 20px !important;
+        animation: animate-stripes 1s linear infinite;
     }
-    .selectize-input.focus { border-color: var(--primary) !important; box-shadow: 0 0 0 3px rgba(26, 79, 221, 0.1) !important; }
+    @keyframes animate-stripes { 0% {background-position: 0 0;} 100% {background-position: 40px 0;} }
+
+    /* --- 5. 帮助提示文本 --- */
+    .help-text {
+        font-size: 13px;
+        color: var(--text-sub);
+        background: #F2F2F7;
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        line-height: 1.5;
+    }
+    .help-text ul { margin: 4px 0 0 20px; padding: 0; }
+    .help-text li { margin-bottom: 2px; }
+
+    /* --- 6. 词典标题 --- */
+    #dict-title {
+        position: static !important; /* 覆盖原有绝对定位 */
+        text-align: center;
+        margin-bottom: 20px;
+        padding: 8px;
+        background: #FFF9C4; /* 浅黄背景提示 */
+        border-radius: 6px;
+        font-size: 12px !important;
+        color: #B7950B;
+        display: none; /* 默认隐藏，有内容时 JS 会显示吗？原逻辑似乎是直接渲染 */
+    }
+    /* 原逻辑可能会给它加内容，如果不加 display:none 可能会占位 */
+    #dict-title:not(:empty) { display: block; }
+
+
+    /* --- 7. 结果显示区 --- */
+    #definition {
+        flex: 1;
+        padding-top: 20px;
+        border-top: 1px solid var(--border);
+        line-height: 1.7;
+        font-size: 16px;
+        color: #333;
+        min-height: 200px;
+    }
+
+    /* 词典内容通用美化 */
+    #definition b, #definition strong { color: var(--primary); }
+    #definition i, #definition em { color: #FF2D55; font-style: italic; margin-right: 4px; }
+    #definition a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed rgba(0,122,255,0.3); }
+    
+    /* 隐藏不必要的元素 */
+    #definition img { display: none !important; }
+    #definition a[href^="sound:"] { display: none !important; }
+
+    /* Selectize 修正 (如果用了的话) */
+    .selectize-control { width: 100% !important; min-width: 0 !important; }
+    .selectize-input { 
+        height: 48px !important; 
+        padding: 10px 16px !important; 
+        border-radius: 12px !important; 
+        border: 1px solid #D1D1D6 !important;
+        box-shadow: none !important;
+        background: #F2F2F7 !important;
+        font-size: 17px !important;
+    }
+    .selectize-input.focus { background: #fff !important; border-color: var(--primary) !important; }
+
   </style>
 
 </head>
 <body>
 
-  <h2 style="text-align:center; color:#333; margin-bottom:20px;">MDict Web Reader</h2>
+<div class="container">
+    <h2 class="app-title">📚 MDict Web Reader</h2>
 
-  Choose a dictionary file (*.mdx + optional *.mdd): <input id="dictfile" type="file" multiple=>
-  
-  <p>
-    <input id="word" type="text" value="pa">
-    <input id="btnLookup" type="button" value="look up" disabled="false" class="">
-  </p>
-  
-  <p style="color: #888;font-size: 12px;font-style:italic;">
-    You can apply wildcard in query text to narrow down word list of candidates:
-    <ul style="color: #888;font-size: 12px;font-style:italic;">
-      <li>"*" for 0 or more characters, "?" for just 1 character</li>
-      <li>Append whitespace to end of query text to include space saperated phrase.</li>
-    </ul>
-  </p>
-  
-  <div id="dict-title"></div>
-  <div id="definition">
-    <div style="text-align:center; color:#ccc; margin-top:50px;">
-        Start by loading a dictionary file above.
+    <div class="file-upload-wrapper">
+        <label for="dictfile" class="file-upload-label">
+            📂 Click to Select Dictionary Files
+            <span class="file-upload-hint">Supported: .mdx (Required) + .mdd (Optional)</span>
+        </label>
+        <input id="dictfile" type="file" multiple>
     </div>
-  </div>
+
+    <div id="dict-title"></div>
+
+    <div class="search-wrapper">
+        <input id="word" type="text" value="" placeholder="Type a word...">
+        <input id="btnLookup" type="button" value="Search" disabled="true">
+    </div>
+
+    <div class="help-text">
+        <strong>Tips:</strong> Wildcards are supported:
+        <ul>
+          <li>"*" for 0 or more characters</li>
+          <li>"?" for just 1 character</li>
+        </ul>
+    </div>
   
-  <script type="text/javascript" src="conf.js"></script>
-  <script src="require.js" data-main="mdict"></script>
+    <div id="definition">
+        <div style="text-align:center; color:#ccc; margin-top:60px;">Definition will appear here</div>
+    </div>
+</div>
+
+<script type="text/javascript" src="conf.js"></script>
+<script src="require.js" data-main="mdict"></script>
+
+<script>
+    document.getElementById('dictfile').addEventListener('change', function(e) {
+        var fileName = e.target.files[0] ? e.target.files[0].name : "Click to Select Dictionary Files";
+        if(e.target.files.length > 1) fileName += " (and " + (e.target.files.length - 1) + " other)";
+        document.querySelector('.file-upload-label').innerHTML = "📄 " + fileName;
+        document.querySelector('.file-upload-wrapper').style.borderColor = "#34C759";
+        document.querySelector('.file-upload-wrapper').style.background = "#F0FFF4";
+    });
+</script>
+
 </body>
 </html>
