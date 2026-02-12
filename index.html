@@ -36,7 +36,7 @@
       border-radius: var(--radius);
       box-shadow: var(--shadow);
       display: flex; flex-direction: column;
-      height: 90vh; /* 适配移动端 */
+      height: 90vh;
       overflow: hidden;
     }
 
@@ -70,6 +70,12 @@
     }
     #status-area.success { background: #34C759; color: white; }
     #status-area.error { background: #FF3B30; color: white; }
+
+    /* 进度条容器 */
+    .progress-track {
+        height: 4px; width: 100px; background: #E5E5EA; margin: 10px auto 0; border-radius: 2px; overflow: hidden; display: none;
+    }
+    .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.2s; }
 
     /* --- 搜索区域 --- */
     .search-wrapper {
@@ -110,20 +116,22 @@
       -webkit-overflow-scrolling: touch;
     }
 
-    /* --- 词典内容美化 --- */
+    /* --- 词典内容通用美化 --- */
     #definition b, #definition strong { color: var(--primary); font-weight: 700; }
     #definition i, #definition em { color: #FF2D55; font-style: italic; margin-right: 4px; }
     #definition a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed rgba(0,122,255,0.3); }
     
-    /* 🟢 关键修改：允许显示图片 */
+    /* 🟢 图片样式修正：允许显示，并限制宽度 */
     #definition img { 
         max-width: 100%; 
         height: auto; 
         display: block; 
-        margin: 10px 0; 
-        border-radius: 8px;
-    } 
-    /* 隐藏声音链接（因为没有音频处理逻辑，且影响排版） */
+        margin: 10px auto; 
+        border-radius: 8px; 
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    /* 隐藏发音图标 (因为处理声音比较复杂，暂时隐藏保持界面整洁) */
     #definition a[href^="sound:"] { display: none !important; }
     
     /* 空状态提示 */
@@ -138,6 +146,7 @@
     <header>
         <h2>MDict Library</h2>
         <div id="status-area">⏳ Connecting...</div>
+        <div class="progress-track" id="p-track"><div class="progress-fill" id="p-fill"></div></div>
     </header>
 
     <div class="search-wrapper">
@@ -155,7 +164,6 @@
   <script src="require.js"></script>
   
   <script>
-    // 1. RequireJS 配置
     require.config({
       baseUrl: '.',
       paths: {
@@ -167,10 +175,9 @@
       }
     });
 
-    // 2. 核心逻辑
     require(['jquery', 'mdict-parser', 'mdict-renderer', 'bluebird'], function($, MdictParser, MdictRenderer, Promise) {
       
-      // 🔴 文件名配置区 (必须严格一致)
+      // 🔴 配置区：请确保两个文件都在 GitHub 仓库根目录
       const MDX_URL = 'dict.mdx';
       const MDD_URL = 'dict.mdd';
       
@@ -178,83 +185,90 @@
       const $input = $('#word');
       const $btn = $('#btnLookup');
       const $def = $('#definition');
+      const $pTrack = $('#p-track');
+      const $pFill = $('#p-fill');
       
       let mdictInstance = null;
 
-      // 通用下载函数 (支持进度)
-      function fetchFile(url, onProgress) {
-        return fetch(url).then(response => {
-            if (!response.ok) throw new Error(`Download failed: ${url}`);
-            
-            const contentLength = response.headers.get('content-length');
-            const total = parseInt(contentLength, 10);
-            let loaded = 0;
+      // 通用文件下载函数
+      function fetchFile(url, trackProgress) {
+          return fetch(url).then(response => {
+              if (!response.ok) throw new Error(`Failed to load ${url}`);
+              
+              if (!trackProgress) return response.blob(); // 小文件直接返回
 
-            const reader = response.body.getReader();
-            const chunks = [];
+              const contentLength = response.headers.get('content-length');
+              const total = parseInt(contentLength, 10);
+              let loaded = 0;
+              const reader = response.body.getReader();
+              const chunks = [];
 
-            return new ReadableStream({
-                start(controller) {
-                    function push() {
-                        reader.read().then(({done, value}) => {
-                            if (done) {
-                                controller.close();
-                                return;
-                            }
-                            loaded += value.length;
-                            chunks.push(value);
-                            if (onProgress && total) onProgress(loaded / total);
-                            controller.enqueue(value);
-                            push();
-                        });
-                    }
-                    push();
-                }
-            }).then(() => new Blob(chunks));
-        });
+              return new ReadableStream({
+                  start(controller) {
+                      function push() {
+                          reader.read().then(({done, value}) => {
+                              if (done) {
+                                  controller.close();
+                                  return;
+                              }
+                              loaded += value.length;
+                              chunks.push(value);
+                              // 更新进度条
+                              if (total) {
+                                  const pct = (loaded / total) * 100;
+                                  $pFill.css('width', pct + '%');
+                              }
+                              controller.enqueue(value);
+                              push();
+                          });
+                      }
+                      push();
+                  }
+              }).then(() => new Blob(chunks));
+          });
       }
 
-      // --- 核心：双文件自动下载 ---
+      // --- 核心：双文件加载 ---
       async function loadDictionary() {
         try {
-            $status.html(`Downloading...`).removeClass('error success');
-            
-            // 并行下载：MDX有进度条，MDD静默下载
-            const [blobMDX, blobMDD] = await Promise.all([
-                fetchFile(MDX_URL, (pct) => {
-                    // 只显示 MDX 的进度，因为它是主文件
-                    $status.html(`Downloading... ${Math.round(pct * 100)}%`);
-                }),
-                fetchFile(MDD_URL)
-            ]);
-
-            $status.html('Parsing Index...');
-            
-            // 构造文件对象
-            const fileMDX = new File([blobMDX], MDX_URL);
-            const fileMDD = new File([blobMDD], MDD_URL);
-
-            // 解析 (传入数组)
-            mdictInstance = new MdictParser([fileMDX, fileMDD]);
-            await mdictInstance.parse();
-            
-            // 加载成功
-            $status.html(`Ready`).addClass('success');
-            $input.prop('disabled', false).attr('placeholder', 'Type a word...');
-            $btn.prop('disabled', false);
-            $input.focus();
+          $status.html(`Downloading...`).removeClass('error success');
+          $pTrack.show();
+          
+          // 并行下载 MDX (带进度) 和 MDD (直接下)
+          const [blobMDX, blobMDD] = await Promise.all([
+              fetchFile(MDX_URL, true),  // 主文件，显示进度
+              fetchFile(MDD_URL, false)  // 资源文件(很小)，后台下
+          ]);
+          
+          // 构造 File 对象
+          const fileMDX = new File([blobMDX], MDX_URL);
+          const fileMDD = new File([blobMDD], MDD_URL);
+          
+          $status.html('Parsing Index...');
+          
+          // 将两个文件一起传给解析器
+          mdictInstance = new MdictParser([fileMDX, fileMDD]);
+          await mdictInstance.parse();
+          
+          // 完成
+          $status.html(`Ready`).addClass('success');
+          $pTrack.fadeOut();
+          $input.prop('disabled', false).attr('placeholder', 'Type a word...');
+          $btn.prop('disabled', false);
+          $input.focus();
 
         } catch (err) {
-            console.error(err);
-            $status.html(`Failed`).addClass('error');
-            $def.html(`<div style="text-align:center; padding:20px; color:red;">
-                <strong>Error:</strong> ${err.message}<br>
-                <small>Ensure both <b>dict.mdx</b> and <b>dict.mdd</b> exist.</small>
-            </div>`);
+          console.error(err);
+          $status.html(`Error`).addClass('error');
+          $pTrack.hide();
+          $def.html(`<div style="text-align:center; padding:20px; color:red;">
+            <strong>Load Failed:</strong> ${err.message}<br>
+            <small>Check if <b>dict.mdx</b> and <b>dict.mdd</b> exist.</small>
+          </div>`);
         }
       }
 
-      // --- 搜索逻辑 ---
+      // --- 搜索 ---
       $btn.click(function() {
         const query = $input.val().trim();
         if (!query || !mdictInstance) return;
@@ -265,23 +279,17 @@
           let html = result.definition;
           if (html) {
             // 清洗链接
-            html = html.replace(/href="entry:\/\//g, 'href="#');
+            html = html.replace(/href="entry:\/\//g, 'data-entry="'); 
             html = html.replace(/href="sound:\/\//g, 'href="#no-sound"');
             
-            // 渲染
             $def.html(html);
             
-            // 处理内部跳转
-            $def.find('a').on('click', function(e) {
-                const href = $(this).attr('href');
-                if (href && href.startsWith('#') && href !== '#no-sound') {
-                    e.preventDefault();
-                    const nextWord = href.substring(1).replace(/^[/\\]/, '').replace(/[/\\]$/, '');
-                    if(nextWord) {
-                        $input.val(nextWord);
-                        $btn.click();
-                    }
-                }
+            // 内部跳转处理
+            $def.find('a[data-entry]').on('click', function(e) {
+                e.preventDefault();
+                const word = $(this).attr('data-entry').replace(/^[/\\]/, '').replace(/[/\\]$/, '');
+                $input.val(word);
+                $btn.click();
             });
             
           } else {
@@ -296,7 +304,6 @@
         if(e.which == 13) $btn.click();
       });
 
-      // 启动
       loadDictionary();
     });
   </script>
