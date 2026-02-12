@@ -7,7 +7,7 @@
   <title>MDict Online Pro</title>
   
   <style>
-    /* --- 全局重置 --- */
+    /* --- 界面样式 (保持美观) --- */
     :root {
       --primary: #007AFF;
       --bg-body: #F5F5F7;
@@ -29,7 +29,6 @@
       display: flex; justify-content: center; min-height: 100vh;
     }
 
-    /* --- 主卡片容器 --- */
     .app-card {
       width: 100%; max-width: 680px;
       background: var(--bg-card);
@@ -40,7 +39,6 @@
       overflow: hidden;
     }
 
-    /* --- 头部区域 --- */
     header {
       padding: 24px 24px 16px;
       text-align: center;
@@ -50,94 +48,46 @@
       z-index: 10;
     }
 
-    h2 { 
-      margin: 0 0 12px 0; 
-      font-size: 18px; 
-      font-weight: 600; 
-      color: var(--text-main); 
-    }
+    h2 { margin: 0 0 12px 0; font-size: 18px; font-weight: 600; color: var(--text-main); }
 
-    /* --- 状态胶囊 --- */
     #status-area { 
-      display: inline-block;
-      padding: 6px 16px;
-      background: #E5E5EA;
-      color: var(--text-sub);
-      border-radius: 20px;
-      font-size: 13px;
-      font-weight: 500;
-      transition: 0.3s;
+      display: inline-block; padding: 6px 16px; background: #E5E5EA; color: var(--text-sub);
+      border-radius: 20px; font-size: 13px; font-weight: 500; transition: 0.3s;
     }
     #status-area.success { background: #34C759; color: white; }
     #status-area.error { background: #FF3B30; color: white; }
 
-    /* 进度条容器 */
-    .progress-track {
-        height: 4px; width: 100px; background: #E5E5EA; margin: 10px auto 0; border-radius: 2px; overflow: hidden; display: none;
-    }
+    .progress-track { height: 4px; width: 100px; background: #E5E5EA; margin: 10px auto 0; border-radius: 2px; overflow: hidden; display: none; }
     .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.2s; }
 
-    /* --- 搜索区域 --- */
-    .search-wrapper {
-      padding: 16px 24px;
-      display: flex; gap: 10px;
-      background: var(--bg-card);
-    }
+    .search-wrapper { padding: 16px 24px; display: flex; gap: 10px; background: var(--bg-card); }
 
     #word { 
-      flex: 1; 
-      height: 44px; padding: 0 16px; 
-      font-size: 16px; 
-      border: 1px solid #D1D1D6; 
-      border-radius: 10px; 
-      background: #F2F2F7;
-      transition: 0.2s;
+      flex: 1; height: 44px; padding: 0 16px; font-size: 16px; 
+      border: 1px solid #D1D1D6; border-radius: 10px; background: #F2F2F7; transition: 0.2s;
     }
     #word:focus { background: #fff; border-color: var(--primary); }
     #word:disabled { opacity: 0.6; cursor: not-allowed; }
 
     #btnLookup {
-      height: 44px; padding: 0 24px;
-      font-size: 15px; font-weight: 600;
-      border: none; border-radius: 10px;
-      background-color: var(--primary); color: white;
+      height: 44px; padding: 0 24px; font-size: 15px; font-weight: 600;
+      border: none; border-radius: 10px; background-color: var(--primary); color: white;
       cursor: pointer; transition: 0.2s;
     }
     #btnLookup:active { transform: scale(0.96); }
     #btnLookup:disabled { background-color: #C7C7CC; cursor: not-allowed; opacity: 1; }
 
-    /* --- 结果内容区 --- */
-    #definition { 
-      flex: 1; 
-      overflow-y: auto; 
-      padding: 24px; 
-      line-height: 1.6; 
-      font-size: 16px;
-      -webkit-overflow-scrolling: touch;
-    }
-
-    /* --- 词典内容通用美化 --- */
+    #definition { flex: 1; overflow-y: auto; padding: 24px; line-height: 1.6; font-size: 16px; -webkit-overflow-scrolling: touch; }
+    
+    /* 内容美化 */
     #definition b, #definition strong { color: var(--primary); font-weight: 700; }
     #definition i, #definition em { color: #FF2D55; font-style: italic; margin-right: 4px; }
     #definition a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed rgba(0,122,255,0.3); }
     
-    /* 🟢 图片样式修正：允许显示，并限制宽度 */
-    #definition img { 
-        max-width: 100%; 
-        height: auto; 
-        display: block; 
-        margin: 10px auto; 
-        border-radius: 8px; 
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    
-    /* 隐藏发音图标 (因为处理声音比较复杂，暂时隐藏保持界面整洁) */
+    #definition img { max-width: 100%; height: auto; display: block; margin: 10px auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     #definition a[href^="sound:"] { display: none !important; }
     
-    /* 空状态提示 */
-    .empty-hint {
-        text-align: center; color: #C7C7CC; margin-top: 60px;
-    }
+    .empty-hint { text-align: center; color: #C7C7CC; margin-top: 60px; }
   </style>
 </head>
 <body>
@@ -145,39 +95,61 @@
   <div class="app-card">
     <header>
         <h2>MDict Library</h2>
-        <div id="status-area">⏳ Connecting...</div>
+        <div id="status-area">⏳ Initializing...</div>
         <div class="progress-track" id="p-track"><div class="progress-fill" id="p-fill"></div></div>
     </header>
 
     <div class="search-wrapper">
-        <input id="word" type="text" value="" placeholder="Loading resources..." disabled autocomplete="off">
+        <input id="word" type="text" value="" placeholder="Waiting for scripts..." disabled autocomplete="off">
         <input id="btnLookup" type="button" value="Search" disabled>
     </div>
     
     <div id="dict-title" style="display:none;"></div>
     
     <div id="definition">
-        <div class="empty-hint">Type a word to start</div>
+        <div class="empty-hint">Dictionary is loading...</div>
     </div>
   </div>
 
   <script src="require.js"></script>
   
   <script>
+    // 🔴 1. 修复配置：把所有依赖文件都注册进去
     require.config({
       baseUrl: '.',
       paths: {
         'jquery': 'jquery-1.11.3.min',
         'bluebird': 'bluebird.min',
+        // 核心修复点：添加 bitstring 和 pako，并修正 lzo 路径
         'lzo': 'minilzo-decompress.min',
         'ripemd128': 'ripemd128.min',
-        'speex': 'speex.min'
+        'speex': 'speex.min',
+        'bitstring': 'bitstring.min',   // <-- 之前缺了这个
+        'pako': 'pako_inflate.min'      // <-- 之前缺了这个
       }
     });
 
+    // 🔴 2. 增加错误捕获：如果还缺文件，直接弹窗提示
+    requirejs.onError = function (err) {
+        console.error(err);
+        const status = document.getElementById('status-area');
+        const def = document.getElementById('definition');
+        if (status) {
+            status.innerHTML = 'Script Error';
+            status.className = 'error';
+        }
+        if (def) {
+            def.innerHTML = `<div style="color:red; text-align:center; padding:20px;">
+                <strong>System Error:</strong> ${err.requireType}<br>
+                Missing module: <b>${err.requireModules}</b><br>
+                <small>请检查 GitHub 仓库是否有名为 ${err.requireModules}.js 的文件</small>
+            </div>`;
+        }
+    };
+
+    // 3. 主逻辑
     require(['jquery', 'mdict-parser', 'mdict-renderer', 'bluebird'], function($, MdictParser, MdictRenderer, Promise) {
       
-      // 🔴 配置区：请确保两个文件都在 GitHub 仓库根目录
       const MDX_URL = 'dict.mdx';
       const MDD_URL = 'dict.mdd';
       
@@ -190,12 +162,11 @@
       
       let mdictInstance = null;
 
-      // 通用文件下载函数
       function fetchFile(url, trackProgress) {
           return fetch(url).then(response => {
-              if (!response.ok) throw new Error(`Failed to load ${url}`);
+              if (!response.ok) throw new Error(`Failed to load ${url} (${response.status})`);
               
-              if (!trackProgress) return response.blob(); // 小文件直接返回
+              if (!trackProgress) return response.blob(); 
 
               const contentLength = response.headers.get('content-length');
               const total = parseInt(contentLength, 10);
@@ -213,7 +184,6 @@
                               }
                               loaded += value.length;
                               chunks.push(value);
-                              // 更新进度条
                               if (total) {
                                   const pct = (loaded / total) * 100;
                                   $pFill.css('width', pct + '%');
@@ -228,34 +198,32 @@
           });
       }
 
-      // --- 核心：双文件加载 ---
       async function loadDictionary() {
         try {
           $status.html(`Downloading...`).removeClass('error success');
           $pTrack.show();
           
-          // 并行下载 MDX (带进度) 和 MDD (直接下)
           const [blobMDX, blobMDD] = await Promise.all([
-              fetchFile(MDX_URL, true),  // 主文件，显示进度
-              fetchFile(MDD_URL, false)  // 资源文件(很小)，后台下
+              fetchFile(MDX_URL, true), 
+              fetchFile(MDD_URL, false)
           ]);
           
-          // 构造 File 对象
           const fileMDX = new File([blobMDX], MDX_URL);
           const fileMDD = new File([blobMDD], MDD_URL);
           
           $status.html('Parsing Index...');
           
-          // 将两个文件一起传给解析器
           mdictInstance = new MdictParser([fileMDX, fileMDD]);
           await mdictInstance.parse();
           
-          // 完成
           $status.html(`Ready`).addClass('success');
           $pTrack.fadeOut();
           $input.prop('disabled', false).attr('placeholder', 'Type a word...');
           $btn.prop('disabled', false);
           $input.focus();
+          
+          // 清空初始提示
+          $('.empty-hint').text('Type a word to start');
 
         } catch (err) {
           console.error(err);
@@ -263,12 +231,11 @@
           $pTrack.hide();
           $def.html(`<div style="text-align:center; padding:20px; color:red;">
             <strong>Load Failed:</strong> ${err.message}<br>
-            <small>Check if <b>dict.mdx</b> and <b>dict.mdd</b> exist.</small>
+            <small>Please check if <b>dict.mdx</b> exists in repo.</small>
           </div>`);
         }
       }
 
-      // --- 搜索 ---
       $btn.click(function() {
         const query = $input.val().trim();
         if (!query || !mdictInstance) return;
@@ -278,13 +245,11 @@
         mdictInstance.lookup(query).then(function(result) {
           let html = result.definition;
           if (html) {
-            // 清洗链接
             html = html.replace(/href="entry:\/\//g, 'data-entry="'); 
             html = html.replace(/href="sound:\/\//g, 'href="#no-sound"');
             
             $def.html(html);
             
-            // 内部跳转处理
             $def.find('a[data-entry]').on('click', function(e) {
                 e.preventDefault();
                 const word = $(this).attr('data-entry').replace(/^[/\\]/, '').replace(/[/\\]$/, '');
