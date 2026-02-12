@@ -1,383 +1,255 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MDict Online Pro</title>
-    <style>
-        /* --- 全局重置与字体 --- */
-        :root {
-            --primary: #007AFF;       /* 核心蓝 */
-            --bg-body: #F2F4F7;       /* 页面背景 */
-            --bg-card: #FFFFFF;       /* 卡片背景 */
-            --text-main: #1D1D1F;     /* 主文字 */
-            --text-sub: #86868B;      /* 次要文字 */
-            --shadow: 0 8px 30px rgba(0,0,0,0.08);
-            --radius: 16px;
-        }
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="robots" content="noindex">
+  <title>MDict Online</title>
+  
+  <style>
+    /* --- 全局重置 --- */
+    :root {
+      --primary: #007AFF;
+      --bg-body: #F5F5F7;
+      --bg-card: #FFFFFF;
+      --text-main: #1D1D1F;
+      --text-sub: #86868B;
+      --border: #E5E5EA;
+      --radius: 18px;
+      --shadow: 0 4px 20px rgba(0,0,0,0.06);
+    }
+    
+    * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; -webkit-tap-highlight-color: transparent; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; 
+      background-color: var(--bg-body); 
+      color: var(--text-main);
+      margin: 0; padding: 20px; 
+      display: flex; justify-content: center; min-height: 100vh;
+    }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-body);
-            color: var(--text-main);
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            padding: 20px;
-        }
+    /* --- 主卡片容器 --- */
+    .app-card {
+      width: 100%; max-width: 680px;
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      display: flex; flex-direction: column;
+      height: 90vh; /* 适配移动端 */
+      overflow: hidden;
+    }
 
-        /* --- 主容器 (卡片) --- */
-        .app-container {
-            width: 100%;
-            max-width: 720px;
-            background: var(--bg-card);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            height: 90vh; /* 适配移动端高度 */
-        }
+    /* --- 头部区域 --- */
+    header {
+      padding: 24px 24px 16px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(10px);
+      z-index: 10;
+    }
 
-        /* --- 头部区域 --- */
-        header {
-            padding: 24px 24px 0;
-            text-align: center;
-            flex-shrink: 0;
-        }
+    h2 { 
+      margin: 0 0 12px 0; 
+      font-size: 18px; 
+      font-weight: 600; 
+      color: var(--text-main); 
+    }
 
-        h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-            margin-bottom: 8px;
-        }
+    /* --- 状态胶囊 --- */
+    #status-area { 
+      display: inline-block;
+      padding: 6px 16px;
+      background: #E5E5EA;
+      color: var(--text-sub);
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: 0.3s;
+    }
+    /* 成功状态样式 (JS会动态添加) */
+    #status-area.success { background: #34C759; color: white; }
+    #status-area.error { background: #FF3B30; color: white; }
 
-        .status-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: 500;
-            background: #E5E5EA;
-            color: var(--text-sub);
-            transition: 0.3s;
-        }
-        
-        /* 进度条 */
-        .progress-wrapper {
-            height: 4px;
-            width: 100%;
-            background: #F2F2F7;
-            margin-top: 20px;
-            border-radius: 2px;
-            overflow: hidden;
-            display: none; /* 默认隐藏 */
-        }
-        .progress-bar {
-            height: 100%;
-            background: var(--primary);
-            width: 0%;
-            transition: width 0.1s linear;
-        }
+    /* --- 搜索区域 --- */
+    .search-wrapper {
+      padding: 16px 24px;
+      display: flex; gap: 10px;
+      background: var(--bg-card);
+    }
 
-        /* --- 搜索栏 --- */
-        .search-area {
-            padding: 20px 24px;
-            border-bottom: 1px solid #F2F2F7;
-            display: flex;
-            gap: 12px;
-            flex-shrink: 0;
-        }
+    #word { 
+      flex: 1; 
+      height: 44px; padding: 0 16px; 
+      font-size: 16px; 
+      border: 1px solid #D1D1D6; 
+      border-radius: 10px; 
+      background: #F2F2F7;
+      transition: 0.2s;
+    }
+    #word:focus { background: #fff; border-color: var(--primary); }
+    #word:disabled { opacity: 0.6; cursor: not-allowed; }
 
-        input[type="text"] {
-            flex: 1;
-            height: 48px;
-            padding: 0 16px;
-            font-size: 17px;
-            border: 2px solid transparent;
-            background: #F2F2F7;
-            border-radius: 12px;
-            transition: all 0.2s;
-            color: var(--text-main);
-        }
+    #btnLookup {
+      height: 44px; padding: 0 24px;
+      font-size: 15px; font-weight: 600;
+      border: none; border-radius: 10px;
+      background-color: var(--primary); color: white;
+      cursor: pointer; transition: 0.2s;
+    }
+    #btnLookup:active { transform: scale(0.96); }
+    #btnLookup:disabled { background-color: #C7C7CC; cursor: not-allowed; opacity: 1; }
 
-        input[type="text"]:focus {
-            background: #fff;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
-        }
+    /* --- 结果内容区 --- */
+    #definition { 
+      flex: 1; 
+      overflow-y: auto; 
+      padding: 24px; 
+      line-height: 1.6; 
+      font-size: 16px;
+      -webkit-overflow-scrolling: touch;
+    }
 
-        button {
-            height: 48px;
-            padding: 0 24px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-
-        button:active { transform: scale(0.96); }
-        button:disabled { background: #C7C7CC; cursor: not-allowed; opacity: 0.7; }
-
-        /* --- 结果显示区 (关键样式优化) --- */
-        #definition-wrapper {
-            flex: 1;
-            overflow-y: auto;
-            padding: 24px;
-            line-height: 1.6;
-            font-size: 16px;
-            -webkit-overflow-scrolling: touch; /* iOS丝滑滚动 */
-        }
-
-        /* === 词典内容通用美化 (针对乱七八糟的 HTML) === */
-        .mdict-content { color: #333; }
-        
-        /* 1. 词头高亮 */
-        .mdict-content b, .mdict-content strong, .mdict-content .hw {
-            color: var(--primary);
-            font-weight: 700;
-            font-size: 1.1em;
-        }
-
-        /* 2. 词性 (n. v. adj.) */
-        .mdict-content i, .mdict-content .pos {
-            color: #FF2D55; /* 红色系 */
-            font-style: italic;
-            margin-right: 4px;
-            font-family: serif;
-        }
-
-        /* 3. 例句块 */
-        .mdict-content .exam, .mdict-content .example {
-            display: block;
-            margin: 8px 0;
-            padding: 8px 12px;
-            background: #F2F4F7;
-            border-left: 3px solid #8E8E93;
-            border-radius: 4px;
-            color: #555;
-            font-size: 0.95em;
-        }
-
-        /* 4. 音标 */
-        .mdict-content .pron, .mdict-content .phon {
-            font-family: "Lucida Sans Unicode", sans-serif;
-            color: #8E8E93;
-            margin: 0 6px;
-        }
-
-        /* 5. 隐藏无用元素 */
-        .mdict-content img { display: none !important; } /* 隐藏图片防止裂图 */
-        .mdict-content a[href^="sound:"] { display: none !important; } /* 隐藏发音图标 */
-        .mdict-content script, .mdict-content style { display: none; }
-
-        /* 6. 链接美化 */
-        .mdict-content a[href^="entry:"] {
-            color: var(--primary);
-            text-decoration: none;
-            border-bottom: 1px dashed var(--primary);
-        }
-
-        /* 空状态 */
-        .empty-state {
-            text-align: center;
-            color: var(--text-sub);
-            margin-top: 60px;
-        }
-        .empty-state svg { width: 64px; height: 64px; margin-bottom: 16px; opacity: 0.5; }
-
-        @media (max-width: 600px) {
-            body { padding: 0; }
-            .app-container { height: 100vh; border-radius: 0; }
-            button { padding: 0 16px; }
-        }
-    </style>
+    /* --- 词典内容通用美化 --- */
+    /* 即使没有 CSS 文件，这些样式能让内容变好看 */
+    #definition b, #definition strong { color: var(--primary); font-weight: 700; }
+    #definition i, #definition em { color: #FF2D55; font-style: italic; margin-right: 4px; }
+    #definition a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed rgba(0,122,255,0.3); }
+    
+    /* 隐藏可能导致裂图的元素 */
+    #definition img { display: none !important; } 
+    #definition a[href^="sound:"] { display: none !important; }
+    
+    /* 空状态提示 */
+    .empty-hint {
+        text-align: center; color: #C7C7CC; margin-top: 60px;
+    }
+  </style>
 </head>
 <body>
 
-<div class="app-container">
+  <div class="app-card">
     <header>
-        <h1>📚 Dictionary</h1>
-        <div id="status-badge" class="status-badge">Connecting...</div>
-        <div class="progress-wrapper" id="progress-wrapper">
-            <div class="progress-bar" id="progress-bar"></div>
-        </div>
+        <h2>MDict Library</h2>
+        <div id="status-area">⏳ Connecting...</div>
     </header>
 
-    <div class="search-area">
-        <input type="text" id="word" placeholder="Waiting for dictionary..." disabled autocomplete="off">
-        <button id="btnLookup" disabled>Search</button>
+    <div class="search-wrapper">
+        <input id="word" type="text" value="" placeholder="Loading dictionary..." disabled autocomplete="off">
+        <input id="btnLookup" type="button" value="Search" disabled>
     </div>
-
-    <div id="definition-wrapper">
-        <div class="empty-state" id="empty-hint">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
-            <p>Dictionary is initializing...</p>
-        </div>
+    
+    <div id="dict-title" style="display:none;"></div>
+    
+    <div id="definition">
+        <div class="empty-hint">Type a word to start</div>
     </div>
-</div>
+  </div>
 
-<script src="require.js"></script>
-<script>
-    // 🔴 唯一需要配置的地方：文件名
-    const REMOTE_DICT_URL = 'dict.mdx';
-
-    // 界面元素
-    const $status = document.getElementById('status-badge');
-    const $progressWrap = document.getElementById('progress-wrapper');
-    const $progressBar = document.getElementById('progress-bar');
-    const $word = document.getElementById('word');
-    const $btn = document.getElementById('btnLookup');
-    const $content = document.getElementById('definition-wrapper');
-    const $empty = document.getElementById('empty-hint');
-
-    // 配置 RequireJS
+  <script src="require.js"></script>
+  
+  <script>
+    // 1. 配置
     require.config({
-        baseUrl: '.',
-        paths: {
-            'jquery': 'jquery-1.11.3.min', // 确保这些文件名和你仓库里的一致
-            'bluebird': 'bluebird.min',
-            'lzo': 'minilzo-decompress.min'
-        }
+      baseUrl: '.',
+      paths: {
+        'jquery': 'jquery-1.11.3.min',
+        'bluebird': 'bluebird.min',
+        'lzo': 'minilzo-decompress.min',
+        'ripemd128': 'ripemd128.min',
+        'speex': 'speex.min'
+      }
     });
 
-    require(['mdict-parser', 'mdict-renderer', 'jquery'], function(MParser, MRenderer, $) {
-        let mdict = null;
+    // 2. 主逻辑
+    require(['jquery', 'mdict-parser', 'mdict-renderer', 'bluebird'], function($, MdictParser, MdictRenderer, Promise) {
+      
+      const DICT_URL = 'dict.mdx'; // 👈 确保文件名正确
+      
+      const $status = $('#status-area');
+      const $input = $('#word');
+      const $btn = $('#btnLookup');
+      const $def = $('#definition');
+      
+      let mdictInstance = null;
 
-        // 更新状态文字
-        function setStatus(msg, type = 'normal') {
-            $status.textContent = msg;
-            if (type === 'error') {
-                $status.style.background = '#FF3B30';
-                $status.style.color = 'white';
-            } else if (type === 'success') {
-                $status.style.background = '#34C759';
-                $status.style.color = 'white';
-            }
+      // --- 自动下载 ---
+      async function loadDictionary() {
+        try {
+          $status.html(`Downloading Data...`).removeClass('error success');
+          
+          const response = await fetch(DICT_URL);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          
+          const blob = await response.blob();
+          const file = new File([blob], DICT_URL);
+          
+          $status.html('Parsing Index...');
+          
+          mdictInstance = new MdictParser([file]);
+          await mdictInstance.parse();
+          
+          // 加载成功：更新 UI 状态
+          $status.html(`Ready`).addClass('success');
+          $input.prop('disabled', false).attr('placeholder', 'Type a word...');
+          $btn.prop('disabled', false);
+          $input.focus();
+
+        } catch (err) {
+          console.error(err);
+          $status.html(`Failed to load`).addClass('error');
+          $def.html(`<div style="text-align:center; padding:20px; color:red;">
+            <strong>Error:</strong> ${err.message}<br>
+            <small>Please check if <b>dict.mdx</b> exists.</small>
+          </div>`);
         }
+      }
 
-        // 核心：自动下载并解析
-        async function init() {
-            try {
-                setStatus('Downloading Data...');
-                $progressWrap.style.display = 'block';
-
-                const response = await fetch(REMOTE_DICT_URL);
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-                const contentLength = response.headers.get('content-length');
-                const total = parseInt(contentLength, 10);
-                let loaded = 0;
-
-                const reader = response.body.getReader();
-                const chunks = [];
-
-                while(true) {
-                    const {done, value} = await reader.read();
-                    if (done) break;
-                    chunks.push(value);
-                    loaded += value.length;
-                    if(total) {
-                        const pct = (loaded / total) * 100;
-                        $progressBar.style.width = pct + '%';
-                        if(pct % 10 === 0) setStatus(`Downloading... ${Math.round(pct)}%`);
+      // --- 搜索 ---
+      $btn.click(function() {
+        const query = $input.val().trim();
+        if (!query || !mdictInstance) return;
+        
+        $def.html('<div style="text-align:center; color:#999; margin-top:40px;">Searching...</div>');
+        
+        mdictInstance.lookup(query).then(function(result) {
+          let html = result.definition;
+          if (html) {
+            html = html.replace(/href="entry:\/\//g, 'href="#');
+            html = html.replace(/href="sound:\/\//g, 'href="#no-sound"');
+            
+            // 渲染结果
+            $def.html(html);
+            
+            // 内部链接点击处理
+            $def.find('a').on('click', function(e) {
+                const href = $(this).attr('href');
+                if (href && href.startsWith('#') && href !== '#no-sound') {
+                    e.preventDefault();
+                    const nextWord = href.substring(1).replace(/^[/\\]/, '');
+                    if(nextWord) {
+                        $input.val(nextWord);
+                        $btn.click();
                     }
                 }
-
-                setStatus('Parsing Index...');
-                // 稍微延迟一下让 UI 渲染
-                await new Promise(r => setTimeout(r, 100));
-
-                const blob = new Blob(chunks);
-                const file = new File([blob], REMOTE_DICT_URL);
-
-                // 解析
-                const resources = await MParser([file]);
-                mdict = MRenderer(resources);
-
-                // 初始化完成
-                setStatus('Ready', 'success');
-                setTimeout(() => {
-                    $status.style.opacity = '0'; // 几秒后隐藏状态
-                    $progressWrap.style.display = 'none';
-                }, 2000);
-
-                // 激活界面
-                $word.disabled = false;
-                $btn.disabled = false;
-                $word.placeholder = "Type a word to search...";
-                $word.focus();
-                
-                // 更新空状态提示
-                $empty.innerHTML = `
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                    <p>Start your search</p>
-                `;
-
-            } catch (err) {
-                console.error(err);
-                setStatus('Error: ' + err.message, 'error');
-                $empty.innerHTML = `<p style="color:red">Failed to load dictionary.<br>Please check console.</p>`;
-            }
-        }
-
-        // 搜索逻辑
-        async function doLookup() {
-            const query = $word.value.trim();
-            if (!query || !mdict) return;
-
-            // 显示加载态
-            $content.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Searching...</div>';
-
-            try {
-                const result = await mdict.lookup(query);
-                console.log(result); // 调试用
-
-                // 清洗并渲染 HTML
-                if (result.definition) {
-                    let html = result.definition;
-                    // 修复跳转链接
-                    html = html.replace(/href="entry:\/\//g, 'data-entry="'); 
-                    
-                    const $def = $(`<div class="mdict-content">${html}</div>`);
-                    $content.innerHTML = '';
-                    $content.appendChild($def[0]);
-                } else {
-                    $content.innerHTML = `
-                        <div class="empty-state">
-                            <p>No definition found for "<b>${query}</b>"</p>
-                        </div>
-                    `;
-                }
-            } catch (err) {
-                $content.innerHTML = `<div style="text-align:center; color:red;">Error: ${err}</div>`;
-            }
-        }
-
-        // 事件绑定
-        $btn.addEventListener('click', doLookup);
-        $word.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') doLookup();
+            });
+            
+          } else {
+            $def.html('<div style="text-align:center; margin-top:40px; color:#FF9500;">No definition found</div>');
+          }
+        }, function(err) {
+          $def.html('<div style="color:red; text-align:center;">Search Error</div>');
         });
+      });
 
-        // 处理内部跳转点击 (Entry Link)
-        $($content).on('click', 'a[data-entry]', function(e) {
-            e.preventDefault();
-            const word = $(this).attr('data-entry').replace(/^[/\\]/, '').replace(/[/\\]$/, '');
-            $word.value = word;
-            doLookup();
-        });
+      $input.keypress(function(e) {
+        if(e.which == 13) $btn.click();
+      });
 
-        // 启动
-        init();
+      // 启动
+      loadDictionary();
     });
-</script>
+  </script>
 </body>
 </html>
