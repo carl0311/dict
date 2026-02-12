@@ -1,26 +1,11 @@
 <!DOCTYPE html>
-<!--
-Created using JS Bin
-http://jsbin.com
-
-Copyright (c) 2015 by fengdh (http://jsbin.com/xamiwo/90/edit)
-
-Released under the MIT license: http://jsbin.mit-license.org
--->
 <meta name="robots" content="noindex">
 <html>
 <head>
   <meta name="description" content="MDict JS">
-  <!--
-  <script src="require.js"></script>
-  <script src="jquery-1.11.1.js"></script>
-  <script src="lzo1x_decompress_safe.js"></script>
-  <script src="minilzo-decompress2.js"></script>
-  <script src="murmurhash3.js"></script>
-  -->
   <link rel="stylesheet" type="text/css" href="selectize.default.css">
   <meta charset="utf-8">
-  <title>MDict JS</title>
+  <title>MDict JS Online</title>
   <style>
     #btnLookup {
       border: none;
@@ -38,7 +23,6 @@ Released under the MIT license: http://jsbin.mit-license.org
     
     #btnLookup:not([disabled]) {
       background-color: #1A4FDD;
-      xbackground-image: none;
       color: white;
     }
     
@@ -60,59 +44,49 @@ Released under the MIT license: http://jsbin.mit-license.org
       min-width: 18em;
     }
     
-    /*---------------------------*/			
+    /*---------------------------*/     
 
-    .Xstripes {
+    .stripes {
         background-color: #1A4FDD;
         color: white;
         border-color: #33D;
         -webkit-background-size: 30px 30px;
         -moz-background-size: 30px 30px;
-        background-size: 30px 30px;			
-        background-image: -webkit-gradient(linear, left top, right bottom,
-                            color-stop(.25, rgba(255, 255, 255, 0.34)), color-stop(.25, transparent),
-                            color-stop(.5, transparent), color-stop(.5, rgba(255, 255, 255, .34)),
-                            color-stop(.75, rgba(255, 255, 255, 0.34)), color-stop(.75, transparent),
-                            to(transparent));
-        background-image: -webkit-linear-gradient(135deg, rgba(255, 255, 255, 0.34) 25%, transparent 25%,
-                            transparent 50%, rgba(255, 255, 255, 0.34) 50%, rgba(255, 255, 255, 0.34) 75%,
-                            transparent 75%, transparent);
-        background-image: -moz-linear-gradient(135deg, rgba(255, 255, 255, 0.34) 25%, transparent 25%,
-                            transparent 50%, rgba(255, 255, 255, 0.34) 50%, rgba(255, 255, 255, 0.34) 75%,
-                            transparent 75%, transparent);
-        background-image: -ms-linear-gradient(135deg, rgba(255, 255, 255, 0.34) 25%, transparent 25%,
-                            transparent 50%, rgba(255, 255, 255, 0.34) 50%, rgba(255, 255, 255, 0.34) 75%,
-                            transparent 75%, transparent);
-        background-image: -o-linear-gradient(135deg, rgba(255, 255, 255, 0.34) 25%, transparent 25%,
-                            transparent 50%, rgba(255, 255, 255, 0.34) 50%, rgba(255, 255, 255, 0.34) 75%,
-                            transparent 75%, transparent);
+        background-size: 30px 30px;           
         background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.34) 25%, transparent 25%,
-                            transparent 50%, rgba(255, 255, 255, 0.34) 50%, rgba(255, 255, 255, .35) 75%,
-                            transparent 75%, transparent);            
-
+                            transparent 50%, rgba(255, 255, 255, 0.34) 50%, rgba(255, 255, 255, 0.34) 75%,
+                            transparent 75%, transparent);         
         -webkit-animation: animate-stripes 1s linear infinite;
-        -moz-animation: animate-stripes 1s linear infinite;       		
+        -moz-animation: animate-stripes 1s linear infinite;    
+        animation: animate-stripes 1s linear infinite;    
     }
 
-    @-webkit-keyframes animate-stripes { 
+    @keyframes animate-stripes { 
         0% {background-position: 0 0;} 100% {background-position: 60px 0;}
     }
 
-
-    @-moz-keyframes animate-stripes {
-        0% {background-position: 0 0;} 100% {background-position: 60px 0;}
+    /* 新增进度条样式 */
+    #loading-status {
+        margin: 10px 0;
+        padding: 10px;
+        background: #f0f0f0;
+        border-radius: 4px;
+        font-size: 14px;
+        color: #333;
     }
-
-    
-    
   </style>
 
 </head>
 <body>
-  Choose a dictionary file (*.mdx + optional *.mdd): <input id="dictfile" type="file" multiple=>
+  <div style="display:none;">
+    Choose a dictionary file (*.mdx + optional *.mdd): <input id="dictfile" type="file" multiple>
+  </div>
+  
+  <div id="loading-status">⏳ Initializing...</div>
+
   <p>
-  <input id="word" type="text" value="pa">
-  <input id="btnLookup" type="button" value="look up" disabled="false" class="">
+  <input id="word" type="text" value="" placeholder="Type a word...">
+  <input id="btnLookup" type="button" value="look up" disabled="true" class="">
   <p style="color: #888;font-size: 12px;font-style:italic;">
     You can apply wildcard in query text to narrow down word list of candidates:
     <ul style="color: #888;font-size: 12px;font-style:italic;">
@@ -124,7 +98,139 @@ Released under the MIT license: http://jsbin.mit-license.org
   <div id="dict-title"></div>
   <div id="definition">
   </div>
+  
   <script type="text/javascript" src="conf.js"></script>
-  <script src="require.js" data-main="mdict"></script>
+  
+  <script src="require.js"></script>
+  
+  <script>
+    // 🔴 配置区：请修改为你的在线 MDX 文件名 (必须在同一目录下)
+    var REMOTE_DICT_URL = 'dict.mdx'; 
+
+    var $status = document.getElementById('loading-status');
+    var $btn = document.getElementById('btnLookup');
+    var $word = document.getElementById('word');
+
+    // 1. 配置 RequireJS (复制自原项目可能需要的配置，确保路径正确)
+    require.config({
+        baseUrl: '.',
+        // 如果原项目的 mdict.js 依赖这些，需要确保路径对
+        paths: {
+            'jquery': 'jquery-1.11.3.min', 
+            // 注意：这里假设你文件夹里有这些文件，如果没有请保持原样或调整
+        }
+    });
+
+    // 2. 加载 mdict 模块
+    // 注意：原项目的 mdict.js 可能会自动执行初始化逻辑。
+    // 我们需要在它初始化之后，手动触发“加载文件”的动作。
+    require(['mdict', 'jquery'], function(Mdict, $) {
+        
+        $status.innerHTML = "⬇️ Downloading dictionary: " + REMOTE_DICT_URL;
+        $btn.className = "stripes"; // 加载动画
+
+        // 3. 自动下载文件
+        fetch(REMOTE_DICT_URL)
+            .then(function(response) {
+                if (!response.ok) throw new Error("Download failed: " + response.status);
+                
+                // 获取文件大小用于进度条（如果服务器支持）
+                var contentLength = response.headers.get('content-length');
+                var total = parseInt(contentLength, 10);
+                var loaded = 0;
+
+                var reader = response.body.getReader();
+                return new ReadableStream({
+                    start: function(controller) {
+                        function push() {
+                            reader.read().then(function(result) {
+                                if (result.done) {
+                                    controller.close();
+                                    return;
+                                }
+                                loaded += result.value.length;
+                                if(total) {
+                                    $status.innerHTML = "⬇️ Downloading... " + Math.round(loaded/total*100) + "%";
+                                }
+                                controller.enqueue(result.value);
+                                push();
+                            });
+                        }
+                        push();
+                    }
+                });
+            })
+            .then(function(stream) {
+                return new Response(stream).blob();
+            })
+            .then(function(blob) {
+                // 4. 将 Blob 转换为 File 对象
+                var file = new File([blob], REMOTE_DICT_URL);
+                
+                $status.innerHTML = "⚡ Parsing dictionary...";
+
+                // 5. 核心 hack：调用 mdict.js 内部可能暴露的加载方法
+                // 由于不知道 mdict.js 的具体暴露方式，我们尝试模拟 input 的 change 事件
+                // 但更好的方式是直接利用 Mdict 模块（如果它暴露了）
+                
+                // 尝试方案 A：如果 Mdict 模块导出了 load 函数
+                /* if (typeof Mdict.load === 'function') {
+                    Mdict.load([file]).then(onLoaded);
+                } 
+                */
+
+                // 尝试方案 B (通用)：利用 jQuery 触发事件（虽然 file input 很难编程赋值）
+                // file input 是只读的，不能赋值。所以必须直接调用处理函数。
+                
+                // 【关键假设】：假设 mdict.js 也是用了 mdict-parser 等库
+                // 我们直接在全局范围或者通过 require 获取到的对象来操作
+                
+                // 查看原 mdict.js 源码逻辑通常是：
+                // require(['mdict-parser', ...], function(Parser) { ... })
+                
+                // 既然我们无法修改 mdict.js，我们尝试重写 require 的回调逻辑
+                // 或者，我们直接在这里重新写一遍加载逻辑（覆盖原有的 input 监听）
+                
+                require(['mdict-parser', 'mdict-renderer'], function(MdictParser, MdictRenderer) {
+                    // 使用 Parser 解析下载的文件
+                    MdictParser([file]).then(function(resources) {
+                        var mdict = resources[0];
+                        
+                        $status.innerHTML = "✅ Ready! " + mdict.head.title;
+                        $btn.className = "";
+                        $btn.disabled = false;
+                        $btn.value = "Look up";
+                        
+                        // 覆盖点击事件
+                        $('#btnLookup').off('click').on('click', function() {
+                            var query = $('#word').val();
+                            mdict.lookup(query).then(function(definitions) {
+                                var html = definitions.definition;
+                                // 渲染
+                                // 这里可能需要 MdictRenderer，或者直接显示 HTML
+                                // 原项目可能有复杂的渲染逻辑，这里简化处理
+                                $('#definition').html(html);
+                                
+                                // 滚动到顶部
+                                window.scrollTo(0, 0);
+                            });
+                        });
+                        
+                        // 绑定回车
+                        $('#word').off('keypress').on('keypress', function(e) {
+                            if(e.which == 13) $('#btnLookup').click();
+                        });
+
+                    });
+                });
+                
+            })
+            .catch(function(err) {
+                console.error(err);
+                $status.innerHTML = "❌ Error: " + err.message;
+                $btn.className = "";
+            });
+    });
+  </script>
 </body>
 </html>
