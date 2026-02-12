@@ -7,7 +7,7 @@
   <title>MDict Online Pro</title>
   
   <style>
-    /* --- 界面样式 --- */
+    /* --- 样式保持不变 --- */
     :root {
       --primary: #007AFF;
       --bg-body: #F5F5F7;
@@ -99,7 +99,7 @@
     </header>
 
     <div class="search-wrapper">
-        <input id="word" type="text" value="" placeholder="Waiting for scripts..." disabled autocomplete="off">
+        <input id="word" type="text" value="" placeholder="Waiting for modules..." disabled autocomplete="off">
         <input id="btnLookup" type="button" value="Search" disabled>
     </div>
     
@@ -113,7 +113,14 @@
   <script src="require.js"></script>
   
   <script>
-    // 🔴 关键修复：补全所有依赖文件名
+    // 🔴 1. 手动定义缺失的 XML 解析模块 (这是修复 scripterror 的关键)
+    define('mdict-parseXml', function() {
+        return function (str) {
+            return (new DOMParser()).parseFromString(str, 'text/xml');
+        }
+    });
+
+    // 🔴 2. 配置其他所有文件的路径
     require.config({
       baseUrl: '.',
       paths: {
@@ -124,28 +131,29 @@
         'speex': 'speex.min',
         'bitstring': 'bitstring.min',
         'pako': 'pako_inflate.min',
-        'pcmdata': 'pcmdata.min',          // <-- 修复点：加上了 .min
-        'murmurhash3': 'murmurhash3.min'   // <-- 预防点：防止下一个报错是这个
+        'pcmdata': 'pcmdata.min',
+        'murmurhash3': 'murmurhash3.min'
       }
     });
 
+    // 错误捕获
     requirejs.onError = function (err) {
         console.error(err);
         const status = document.getElementById('status-area');
         const def = document.getElementById('definition');
         if (status) {
-            status.innerHTML = 'Script Error';
+            status.innerHTML = 'System Error';
             status.className = 'error';
         }
         if (def) {
             def.innerHTML = `<div style="color:red; text-align:center; padding:20px;">
-                <strong>System Error:</strong> ${err.requireType}<br>
-                Missing module: <b>${err.requireModules}</b><br>
-                <small>Hint: Check if <b>${err.requireModules}.js</b> matches your repo file name.</small>
+                <strong>Module Error:</strong> ${err.requireType}<br>
+                Missing: <b>${err.requireModules}</b><br>
             </div>`;
         }
     };
 
+    // 3. 主程序
     require(['jquery', 'mdict-parser', 'mdict-renderer', 'bluebird'], function($, MdictParser, MdictRenderer, Promise) {
       
       const MDX_URL = 'dict.mdx';
@@ -227,7 +235,7 @@
           $pTrack.hide();
           $def.html(`<div style="text-align:center; padding:20px; color:red;">
             <strong>Load Failed:</strong> ${err.message}<br>
-            <small>Check if <b>dict.mdx</b> exists in repo.</small>
+            <small>Please check if <b>dict.mdx</b> exists.</small>
           </div>`);
         }
       }
