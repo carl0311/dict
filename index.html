@@ -7,7 +7,7 @@
   <title>MDict Online Pro</title>
   
   <style>
-    /* --- 样式保持不变 --- */
+    /* --- 界面样式 --- */
     :root {
       --primary: #007AFF;
       --bg-body: #F5F5F7;
@@ -99,7 +99,7 @@
     </header>
 
     <div class="search-wrapper">
-        <input id="word" type="text" value="" placeholder="Waiting for modules..." disabled autocomplete="off">
+        <input id="word" type="text" value="" placeholder="Waiting for scripts..." disabled autocomplete="off">
         <input id="btnLookup" type="button" value="Search" disabled>
     </div>
     
@@ -113,14 +113,7 @@
   <script src="require.js"></script>
   
   <script>
-    // 🔴 1. 手动定义缺失的 XML 解析模块 (这是修复 scripterror 的关键)
-    define('mdict-parseXml', function() {
-        return function (str) {
-            return (new DOMParser()).parseFromString(str, 'text/xml');
-        }
-    });
-
-    // 🔴 2. 配置其他所有文件的路径
+    // 1. 补全所有模块配置
     require.config({
       baseUrl: '.',
       paths: {
@@ -136,24 +129,25 @@
       }
     });
 
-    // 错误捕获
+    // 2. 补全缺失的 XML 解析器定义
+    define('mdict-parseXml', function() {
+        return function (str) {
+            return (new DOMParser()).parseFromString(str, 'text/xml');
+        }
+    });
+
+    // 3. 错误处理
     requirejs.onError = function (err) {
         console.error(err);
         const status = document.getElementById('status-area');
-        const def = document.getElementById('definition');
         if (status) {
             status.innerHTML = 'System Error';
             status.className = 'error';
         }
-        if (def) {
-            def.innerHTML = `<div style="color:red; text-align:center; padding:20px;">
-                <strong>Module Error:</strong> ${err.requireType}<br>
-                Missing: <b>${err.requireModules}</b><br>
-            </div>`;
-        }
+        alert("Script Error: " + err.requireType + "\nModule: " + err.requireModules);
     };
 
-    // 3. 主程序
+    // 4. 主逻辑
     require(['jquery', 'mdict-parser', 'mdict-renderer', 'bluebird'], function($, MdictParser, MdictRenderer, Promise) {
       
       const MDX_URL = 'dict.mdx';
@@ -168,39 +162,44 @@
       
       let mdictInstance = null;
 
+      // 🔴 修复后的下载函数：正确处理 Promise
       function fetchFile(url, trackProgress) {
           return fetch(url).then(response => {
               if (!response.ok) throw new Error(`Failed to load ${url} (${response.status})`);
               
+              // 如果不需要进度，直接返回 Blob
               if (!trackProgress) return response.blob(); 
 
               const contentLength = response.headers.get('content-length');
               const total = parseInt(contentLength, 10);
-              let loaded = 0;
+              
+              // 如果没有 content-length（比如服务器没给），也直接返回
+              if (isNaN(total) || total === 0) return response.blob();
+
               const reader = response.body.getReader();
               const chunks = [];
+              let loaded = 0;
 
-              return new ReadableStream({
-                  start(controller) {
-                      function push() {
-                          reader.read().then(({done, value}) => {
-                              if (done) {
-                                  controller.close();
-                                  return;
-                              }
-                              loaded += value.length;
-                              chunks.push(value);
-                              if (total) {
-                                  const pct = (loaded / total) * 100;
-                                  $pFill.css('width', pct + '%');
-                              }
-                              controller.enqueue(value);
-                              push();
-                          });
-                      }
-                      push();
+              // 使用 Promise 包裹读取循环
+              return new Promise((resolve, reject) => {
+                  function read() {
+                      reader.read().then(({done, value}) => {
+                          if (done) {
+                              resolve(new Blob(chunks));
+                              return;
+                          }
+                          loaded += value.length;
+                          chunks.push(value);
+                          
+                          // 更新进度条
+                          const pct = (loaded / total) * 100;
+                          $pFill.css('width', pct + '%');
+                          
+                          read();
+                      }).catch(reject);
                   }
-              }).then(() => new Blob(chunks));
+                  read();
+              });
           });
       }
 
@@ -209,6 +208,7 @@
           $status.html(`Downloading...`).removeClass('error success');
           $pTrack.show();
           
+          // 并行下载
           const [blobMDX, blobMDD] = await Promise.all([
               fetchFile(MDX_URL, true), 
               fetchFile(MDD_URL, false)
@@ -235,11 +235,12 @@
           $pTrack.hide();
           $def.html(`<div style="text-align:center; padding:20px; color:red;">
             <strong>Load Failed:</strong> ${err.message}<br>
-            <small>Please check if <b>dict.mdx</b> exists.</small>
+            <small>Please check console for details.</small>
           </div>`);
         }
       }
 
+      // 搜索功能
       $btn.click(function() {
         const query = $input.val().trim();
         if (!query || !mdictInstance) return;
@@ -254,6 +255,7 @@
             
             $def.html(html);
             
+            // 内部链接点击
             $def.find('a[data-entry]').on('click', function(e) {
                 e.preventDefault();
                 const word = $(this).attr('data-entry').replace(/^[/\\]/, '').replace(/[/\\]$/, '');
@@ -265,7 +267,8 @@
             $def.html('<div style="text-align:center; margin-top:40px; color:#FF9500;">No definition found</div>');
           }
         }, function(err) {
-          $def.html('<div style="color:red; text-align:center;">Search Error</div>');
+            console.error(err);
+            $def.html('<div style="color:red; text-align:center;">Search Error</div>');
         });
       });
 
