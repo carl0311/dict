@@ -4,16 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="robots" content="noindex">
-  <title>MDict Online</title>
+  <title>MDict Fullscreen</title>
   
   <link rel="stylesheet" type="text/css" href="selectize.default.css">
 
   <style>
-    /* --- 全屏布局样式 --- */
+    /* --- 全屏布局 --- */
     :root {
       --primary: #007AFF;
       --bg-body: #F5F5F7;
-      --bg-header: rgba(255,255,255,0.95);
       --border: #E5E5EA;
     }
     
@@ -24,110 +23,104 @@
       background-color: var(--bg-body); 
       margin: 0; padding: 0; 
       height: 100vh; width: 100vw;
-      overflow: hidden; /* 禁止body滚动，只让内容区滚动 */
+      overflow: hidden; 
       display: flex; flex-direction: column;
     }
 
-    /* 头部：固定在顶部 */
+    /* 顶部导航 */
     header {
       flex-shrink: 0;
-      padding: 15px 20px;
+      padding: 12px 16px;
       text-align: center;
       border-bottom: 1px solid var(--border);
-      background: var(--bg-header);
+      background: rgba(255,255,255,0.95);
       backdrop-filter: blur(10px);
       z-index: 100;
-      box-shadow: 0 1px 5px rgba(0,0,0,0.05);
+      display: flex; align-items: center; justify-content: space-between;
     }
 
-    h2 { margin: 0 0 10px 0; font-size: 16px; font-weight: 600; color: #333; }
+    h2 { margin: 0; font-size: 16px; font-weight: 600; color: #333; }
 
-    /* 状态条 */
     #status-area { 
-      display: inline-block; padding: 4px 12px; background: #E5E5EA; color: #888;
-      border-radius: 15px; font-size: 12px; font-weight: 500; transition: 0.3s;
+      font-size: 12px; color: #888; background: #eee; padding: 4px 10px; border-radius: 12px;
     }
-    #status-area.success { background: #34C759; color: white; }
-    #status-area.error { background: #FF3B30; color: white; }
+    #status-area.success { color: #34C759; background: #E0F8E5; }
 
-    .progress-track { height: 3px; width: 100%; position: absolute; bottom: 0; left: 0; background: transparent; display: none; }
-    .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.2s; }
-
-    /* 搜索区：紧贴头部 */
+    /* 搜索栏 */
     .search-wrapper { 
       flex-shrink: 0;
-      padding: 10px 20px; 
+      padding: 10px 16px; 
       background: #fff; 
       border-bottom: 1px solid var(--border);
-      display: flex; 
-      gap: 10px;
-      align-items: center;
+      display: flex; gap: 8px; align-items: center;
     }
 
-    /* 覆盖 Selectize 样式，使其更现代化 */
-    .selectize-control { flex: 1; height: 40px; }
+    /* Selectize 样式微调 */
+    .selectize-control { flex: 1; height: 44px; }
     .selectize-input {
-      border-radius: 8px !important;
+      border-radius: 10px !important;
       border: 1px solid #D1D1D6 !important;
       padding: 10px 12px !important;
       font-size: 16px !important;
-      box-shadow: none !important;
       background: #F2F2F7 !important;
+      box-shadow: none !important;
+      height: 44px !important;
+      line-height: 22px !important;
     }
     .selectize-input.focus { background: #fff !important; border-color: var(--primary) !important; }
-    .selectize-dropdown { border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); margin-top: 5px; }
+    .selectize-dropdown { 
+      border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); 
+      margin-top: 6px; z-index: 9999;
+    }
+    .selectize-dropdown-content .option { padding: 10px 12px; font-size: 15px; }
+    .selectize-dropdown-content .active { background-color: #F2F2F7; color: #000; }
 
-    /* 按钮样式 */
+    /* 按钮 */
     #btnLookup {
-      height: 40px; padding: 0 20px; font-size: 15px; font-weight: 600;
-      border: none; border-radius: 8px; background-color: var(--primary); color: white;
+      height: 44px; padding: 0 20px; font-size: 15px; font-weight: 600;
+      border: none; border-radius: 10px; background-color: var(--primary); color: white;
       cursor: pointer; flex-shrink: 0;
     }
     #btnLookup:active { opacity: 0.8; }
-    #btnLookup:disabled { background-color: #C7C7CC; cursor: not-allowed; }
 
-    /* 内容显示区：占满剩余空间，独立滚动 */
+    /* 内容区 */
     #definition { 
-      flex: 1; 
-      overflow-y: auto; 
-      padding: 20px; 
-      line-height: 1.6; 
-      font-size: 16px; 
-      background: #fff;
+      flex: 1; overflow-y: auto; padding: 20px; 
+      line-height: 1.6; font-size: 16px; background: #fff;
       -webkit-overflow-scrolling: touch;
     }
     
-    /* 词典内容美化 */
-    #definition b, #definition strong { color: var(--primary); font-weight: 700; }
-    #definition i, #definition em { color: #FF2D55; font-style: italic; margin-right: 4px; }
+    #definition b, #definition strong { color: var(--primary); }
     #definition a { color: var(--primary); text-decoration: none; border-bottom: 1px dashed rgba(0,122,255,0.3); }
     #definition img { max-width: 100%; height: auto; display: block; margin: 10px auto; border-radius: 8px; }
     #definition a[href^="sound:"] { display: none !important; }
+
+    .progress-track { position: absolute; bottom: 0; left: 0; height: 3px; width: 100%; background: transparent; }
+    .progress-fill { height: 100%; background: var(--primary); width: 0%; }
     
-    .empty-hint { text-align: center; color: #C7C7CC; margin-top: 100px; }
   </style>
 </head>
 <body>
 
   <header>
-      <h2>MDict Library</h2>
-      <div id="status-area">⏳ Initializing...</div>
-      <div class="progress-track" id="p-track"><div class="progress-fill" id="p-fill"></div></div>
+      <div id="status-area">⏳ Init...</div>
+      <h2>Dictionary</h2>
+      <div style="width: 40px;"></div> <div class="progress-track" id="p-track"><div class="progress-fill" id="p-fill"></div></div>
   </header>
 
   <div class="search-wrapper">
-      <input id="word" type="text" value="" placeholder="Loading..." disabled>
+      <input id="word" type="text" placeholder="Loading resources...">
       <input id="btnLookup" type="button" value="Search" disabled>
   </div>
   
   <div id="definition">
-      <div class="empty-hint">Dictionary is loading...</div>
+      <div style="text-align:center; color:#ccc; margin-top:100px;">Dictionary is loading...</div>
   </div>
 
   <script src="require.js"></script>
   
   <script>
-    // 1. 配置：加入 selectize
+    // 1. 配置
     require.config({
       baseUrl: '.',
       paths: {
@@ -140,7 +133,7 @@
         'pako': 'pako_inflate.min',
         'pcmdata': 'pcmdata.min',
         'murmurhash3': 'murmurhash3.min',
-        'selectize': 'selectize.min'  // 🟢 恢复联想功能
+        'selectize': 'selectize.min'
       }
     });
 
@@ -149,12 +142,10 @@
     });
 
     requirejs.onError = function (err) {
-        console.error(err);
-        const status = document.getElementById('status-area');
-        if(status) { status.innerText = "Error: " + err.requireModules; status.className = 'error'; }
+        document.getElementById('status-area').innerText = "Error";
+        alert("Missing: " + err.requireModules);
     };
 
-    // 2. 加载模块：加入 Selectize
     require(['jquery', 'mdict-parser', 'mdict-renderer', 'selectize', 'bluebird'], function($, MdictParser, MdictRenderer, Selectize, Promise) {
       
       const MDX_URL = 'dict.mdx';
@@ -168,7 +159,7 @@
       const $pFill = $('#p-fill');
       
       let mdictInstance = null;
-      let selectizeControl = null;
+      let selectizeInstance = null;
 
       function fetchFile(url, trackProgress) {
           return fetch(url).then(response => {
@@ -196,7 +187,7 @@
 
       async function loadDictionary() {
         try {
-          $status.html(`Downloading...`).removeClass('error success');
+          $status.text(`Downloading...`);
           $pTrack.show();
           
           const [blobMDX, blobMDD] = await Promise.all([
@@ -204,104 +195,108 @@
               fetchFile(MDD_URL, false)
           ]);
           
-          $status.html('Parsing...');
-          
+          $status.text('Parsing...');
           const fileMDX = new File([blobMDX], MDX_URL);
           const fileMDD = new File([blobMDD], MDD_URL);
           const resources = await MdictParser([fileMDX, fileMDD]);
           mdictInstance = MdictRenderer(resources);
           
-          $status.html(`Ready`).addClass('success');
+          $status.text(`Ready`).addClass('success');
           $pTrack.fadeOut();
           
-          // 🟢 核心功能：初始化 Selectize 联想输入
-          initSelectize();
+          initSelectize(); // 🟢 初始化联想输入
           
           $btn.prop('disabled', false);
-          $('.empty-hint').text('Type to search...');
+          $('#definition').html('<div style="text-align:center; color:#ccc; margin-top:100px;">Type a word to search</div>');
 
         } catch (err) {
           console.error(err);
-          $status.html(`Error`).addClass('error');
+          $status.text(`Error`).css('color','red');
           $def.html('<div style="color:red;text-align:center;padding:20px">' + err.message + '</div>');
         }
       }
 
-      // 初始化下拉联想
       function initSelectize() {
-          // 先销毁旧的（如果有）
-          if ($input[0].selectize) $input[0].selectize.destroy();
-
-          const $select = $input.selectize({
+          const $s = $input.selectize({
+              valueField: 'word',
+              labelField: 'word',
+              searchField: 'word',
+              create: true, // 允许输入词典里没有的词
+              createOnBlur: true,
               maxItems: 1,
-              valueField: 'word',  // 选中项的值
-              labelField: 'word',  // 下拉列表显示的文字
-              searchField: 'word', // 搜索依据
               placeholder: "Type a word...",
-              create: false,
-              loadThrottle: 300,   // 防抖，输入300ms后才搜索
+              loadThrottle: 200,
               
-              // 动态加载候选词
               load: function(query, callback) {
                   if (!query.length || !mdictInstance) return callback();
                   
-                  // 调用 mdict 的 search 方法
-                  mdictInstance.search({phrase: query, max: 20}).then(function(candidates) {
-                      // candidates 结构: [{keyText: "apple", offset: 123}, ...]
-                      // Selectize 需要数组对象
+                  // 1. 调用 search 获取候选词
+                  mdictInstance.search({phrase: query, max: 15}).then(function(candidates) {
                       const results = candidates.map(item => {
-                          return { word: item.keyText, offset: item.offset };
+                          return { word: item.keyText };
                       });
                       callback(results);
-                  }).catch(function() {
-                      callback();
-                  });
+                  }).catch(() => { callback(); });
               },
               
-              // 选中后触发查询
               onChange: function(value) {
-                  if (value) {
-                      performLookup(value);
-                  }
+                  if(value) performLookup(value);
               }
           });
           
-          selectizeControl = $select[0].selectize;
-          
-          // 激活输入框
-          selectizeControl.enable();
+          selectizeInstance = $s[0].selectize;
+
+          // 🔴 关键修复：监听 Selectize 输入框的回车键
+          // 因为 Selectize 隐藏了原输入框，我们必须监听它生成的 input
+          $('.selectize-input input').on('keydown', function(e) {
+             if (e.which === 13) {
+                 e.preventDefault();
+                 // 获取当前输入的值（即使没有选中下拉项）
+                 const val = selectizeInstance.getValue() || $(this).val();
+                 if(val) {
+                     selectizeInstance.setTextboxValue(val); // 确保值同步
+                     performLookup(val);
+                     selectizeInstance.close(); // 关闭下拉
+                 }
+             }
+          });
       }
 
       function performLookup(query) {
           if (!query || !mdictInstance) return;
-          $def.html('<div style="text-align:center; color:#999; margin-top:20px;">Searching...</div>');
+          $def.html('<div style="text-align:center; color:#999; margin-top:50px;">Searching...</div>');
           
+          // 2. 调用 lookup 显示内容
           mdictInstance.lookup(query).then(function($content) {
               $def.empty().append($content);
               
-              // 内部跳转链接
+              // 内部链接跳转
               $def.find('a').on('click', function(e) {
                   const href = $(this).attr('href');
                   if (href && href.startsWith('entry://')) {
                       e.preventDefault();
                       const word = href.substring(8).replace(/^[/\\]/, '').replace(/[/\\]$/, '');
-                      
-                      // 更新输入框并查询
-                      if(selectizeControl) {
-                          selectizeControl.setValue(word); // 这会触发 onChange -> performLookup
+                      if(selectizeInstance) {
+                          selectizeInstance.setValue(word);
                       } else {
                           performLookup(word);
                       }
                   }
               });
-          }, function(err) {
-              $def.html('<div style="text-align:center; margin-top:40px; color:#FF9500;">No definition found</div>');
+          }, function() {
+              $def.html('<div style="text-align:center; margin-top:50px; color:#FF9500;">No definition found</div>');
           });
       }
 
-      // 按钮点击强制查询
       $btn.click(function() {
-          const val = $input.val();
+          // 获取 Selectize 的值，如果没有选，就获取当前输入的文本
+          let val = selectizeInstance ? selectizeInstance.getValue() : $input.val();
+          
+          // 如果用户只打字没回车也没选，getValue可能为空，尝试获取文本框的值
+          if (!val && selectizeInstance) {
+              val = $('.selectize-input input').val();
+          }
+
           if(val) performLookup(val);
       });
 
