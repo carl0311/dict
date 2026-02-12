@@ -113,7 +113,7 @@
   <script src="require.js"></script>
   
   <script>
-    // 1. 补全所有模块配置
+    // 1. 配置路径
     require.config({
       baseUrl: '.',
       paths: {
@@ -129,7 +129,7 @@
       }
     });
 
-    // 2. 补全缺失的 XML 解析器定义
+    // 2. 补丁：手动定义 mdict-parseXml
     define('mdict-parseXml', function() {
         return function (str) {
             return (new DOMParser()).parseFromString(str, 'text/xml');
@@ -144,7 +144,6 @@
             status.innerHTML = 'System Error';
             status.className = 'error';
         }
-        alert("Script Error: " + err.requireType + "\nModule: " + err.requireModules);
     };
 
     // 4. 主逻辑
@@ -162,25 +161,18 @@
       
       let mdictInstance = null;
 
-      // 🔴 修复后的下载函数：正确处理 Promise
       function fetchFile(url, trackProgress) {
           return fetch(url).then(response => {
               if (!response.ok) throw new Error(`Failed to load ${url} (${response.status})`);
               
-              // 如果不需要进度，直接返回 Blob
               if (!trackProgress) return response.blob(); 
 
               const contentLength = response.headers.get('content-length');
               const total = parseInt(contentLength, 10);
-              
-              // 如果没有 content-length（比如服务器没给），也直接返回
-              if (isNaN(total) || total === 0) return response.blob();
-
               const reader = response.body.getReader();
               const chunks = [];
               let loaded = 0;
 
-              // 使用 Promise 包裹读取循环
               return new Promise((resolve, reject) => {
                   function read() {
                       reader.read().then(({done, value}) => {
@@ -190,11 +182,10 @@
                           }
                           loaded += value.length;
                           chunks.push(value);
-                          
-                          // 更新进度条
-                          const pct = (loaded / total) * 100;
-                          $pFill.css('width', pct + '%');
-                          
+                          if (total) {
+                              const pct = (loaded / total) * 100;
+                              $pFill.css('width', pct + '%');
+                          }
                           read();
                       }).catch(reject);
                   }
@@ -208,7 +199,7 @@
           $status.html(`Downloading...`).removeClass('error success');
           $pTrack.show();
           
-          // 并行下载
+          // 下载文件
           const [blobMDX, blobMDD] = await Promise.all([
               fetchFile(MDX_URL, true), 
               fetchFile(MDD_URL, false)
@@ -219,8 +210,12 @@
           
           $status.html('Parsing Index...');
           
-          mdictInstance = new MdictParser([fileMDX, fileMDD]);
-          await mdictInstance.parse();
+          // 🔴 核心修复：MdictParser 是函数，不是类，直接调用
+          // 它返回一个 Promise，resolve 出 resources
+          const resources = await MdictParser([fileMDX, fileMDD]);
+          
+          // 🔴 核心修复：拿到 resources 后，传给 Renderer 得到实例
+          mdictInstance = MdictRenderer(resources);
           
           $status.html(`Ready`).addClass('success');
           $pTrack.fadeOut();
@@ -235,27 +230,33 @@
           $pTrack.hide();
           $def.html(`<div style="text-align:center; padding:20px; color:red;">
             <strong>Load Failed:</strong> ${err.message}<br>
-            <small>Please check console for details.</small>
+            <small>Check console for details.</small>
           </div>`);
         }
       }
 
-      // 搜索功能
       $btn.click(function() {
         const query = $input.val().trim();
         if (!query || !mdictInstance) return;
         
         $def.html('<div style="text-align:center; color:#999; margin-top:40px;">Searching...</div>');
         
+        // 调用 Renderer 返回的实例进行查询
         mdictInstance.lookup(query).then(function(result) {
           let html = result.definition;
           if (html) {
             html = html.replace(/href="entry:\/\//g, 'data-entry="'); 
             html = html.replace(/href="sound:\/\//g, 'href="#no-sound"');
             
-            $def.html(html);
+            // 渲染 HTML 内容 (jQuery 方式)
+            // MdictRenderer 返回的内容可能已经包含了解析后的图片Blob链接
+            const $content = $(`<div>${html}</div>`);
             
-            // 内部链接点击
+            // 如果 MdictRenderer 提供了 render 方法，可以尝试调用
+            // 但通常 lookup 返回的 definition 已经是处理过的 HTML 字符串
+            
+            $def.empty().append($content);
+            
             $def.find('a[data-entry]').on('click', function(e) {
                 e.preventDefault();
                 const word = $(this).attr('data-entry').replace(/^[/\\]/, '').replace(/[/\\]$/, '');
