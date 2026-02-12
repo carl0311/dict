@@ -7,7 +7,7 @@
   <title>MDict Online Pro</title>
   
   <style>
-    /* --- 界面样式 --- */
+    /* --- 界面样式 (保持不变) --- */
     :root {
       --primary: #007AFF;
       --bg-body: #F5F5F7;
@@ -113,7 +113,6 @@
   <script src="require.js"></script>
   
   <script>
-    // 1. 配置路径
     require.config({
       baseUrl: '.',
       paths: {
@@ -129,24 +128,19 @@
       }
     });
 
-    // 2. 补丁：手动定义 mdict-parseXml
     define('mdict-parseXml', function() {
         return function (str) {
             return (new DOMParser()).parseFromString(str, 'text/xml');
         }
     });
 
-    // 3. 错误处理
     requirejs.onError = function (err) {
         console.error(err);
         const status = document.getElementById('status-area');
-        if (status) {
-            status.innerHTML = 'System Error';
-            status.className = 'error';
-        }
+        if (status) { status.innerHTML = 'System Error'; status.className = 'error'; }
+        alert("Script Error: " + err.requireType + "\nModule: " + err.requireModules);
     };
 
-    // 4. 主逻辑
     require(['jquery', 'mdict-parser', 'mdict-renderer', 'bluebird'], function($, MdictParser, MdictRenderer, Promise) {
       
       const MDX_URL = 'dict.mdx';
@@ -163,29 +157,20 @@
 
       function fetchFile(url, trackProgress) {
           return fetch(url).then(response => {
-              if (!response.ok) throw new Error(`Failed to load ${url} (${response.status})`);
-              
+              if (!response.ok) throw new Error(`Failed to load ${url}`);
               if (!trackProgress) return response.blob(); 
-
               const contentLength = response.headers.get('content-length');
               const total = parseInt(contentLength, 10);
               const reader = response.body.getReader();
               const chunks = [];
               let loaded = 0;
-
               return new Promise((resolve, reject) => {
                   function read() {
                       reader.read().then(({done, value}) => {
-                          if (done) {
-                              resolve(new Blob(chunks));
-                              return;
-                          }
+                          if (done) { resolve(new Blob(chunks)); return; }
                           loaded += value.length;
                           chunks.push(value);
-                          if (total) {
-                              const pct = (loaded / total) * 100;
-                              $pFill.css('width', pct + '%');
-                          }
+                          if (total) { $pFill.css('width', (loaded / total) * 100 + '%'); }
                           read();
                       }).catch(reject);
                   }
@@ -199,7 +184,6 @@
           $status.html(`Downloading...`).removeClass('error success');
           $pTrack.show();
           
-          // 下载文件
           const [blobMDX, blobMDD] = await Promise.all([
               fetchFile(MDX_URL, true), 
               fetchFile(MDD_URL, false)
@@ -210,11 +194,7 @@
           
           $status.html('Parsing Index...');
           
-          // 🔴 核心修复：MdictParser 是函数，不是类，直接调用
-          // 它返回一个 Promise，resolve 出 resources
           const resources = await MdictParser([fileMDX, fileMDD]);
-          
-          // 🔴 核心修复：拿到 resources 后，传给 Renderer 得到实例
           mdictInstance = MdictRenderer(resources);
           
           $status.html(`Ready`).addClass('success');
@@ -227,49 +207,52 @@
         } catch (err) {
           console.error(err);
           $status.html(`Error`).addClass('error');
-          $pTrack.hide();
-          $def.html(`<div style="text-align:center; padding:20px; color:red;">
-            <strong>Load Failed:</strong> ${err.message}<br>
-            <small>Check console for details.</small>
-          </div>`);
+          $def.html('<div style="color:red;text-align:center">Load Failed: ' + err.message + '</div>');
         }
       }
 
+      // 🔴 修复后的搜索逻辑：Search -> Lookup
       $btn.click(function() {
         const query = $input.val().trim();
         if (!query || !mdictInstance) return;
         
         $def.html('<div style="text-align:center; color:#999; margin-top:40px;">Searching...</div>');
         
-        // 调用 Renderer 返回的实例进行查询
-        mdictInstance.lookup(query).then(function(result) {
-          let html = result.definition;
-          if (html) {
-            html = html.replace(/href="entry:\/\//g, 'data-entry="'); 
-            html = html.replace(/href="sound:\/\//g, 'href="#no-sound"');
+        // 1. 先搜索 (Search)，获取候选列表
+        mdictInstance.search({phrase: query, max: 10}).then(function(candidates) {
+            console.log("Search results:", candidates);
             
-            // 渲染 HTML 内容 (jQuery 方式)
-            // MdictRenderer 返回的内容可能已经包含了解析后的图片Blob链接
-            const $content = $(`<div>${html}</div>`);
+            if (!candidates || candidates.length === 0) {
+                 $def.html('<div style="text-align:center; margin-top:40px; color:#FF9500;">No definition found</div>');
+                 return;
+            }
+
+            // 2. 取第一个结果的 offset 进行精确查询 (Lookup)
+            // candidates[0] 通常是 { keyText: "apple", offset: 12345 }
+            const bestMatch = candidates[0];
             
-            // 如果 MdictRenderer 提供了 render 方法，可以尝试调用
-            // 但通常 lookup 返回的 definition 已经是处理过的 HTML 字符串
-            
-            $def.empty().append($content);
-            
-            $def.find('a[data-entry]').on('click', function(e) {
-                e.preventDefault();
-                const word = $(this).attr('data-entry').replace(/^[/\\]/, '').replace(/[/\\]$/, '');
-                $input.val(word);
-                $btn.click();
+            // 3. 调用 lookup
+            mdictInstance.lookup(bestMatch.keyText, bestMatch.offset).then(function($content) {
+                // 🔴 关键点：$content 就是返回的 jQuery 对象，直接 append 即可
+                // 不需要找 .definition 属性
+                $def.empty().append($content);
+                
+                // 处理点击跳转
+                $def.find('a').on('click', function(e) {
+                    const href = $(this).attr('href');
+                    if (href && href.startsWith('entry://')) {
+                        e.preventDefault();
+                        const word = href.substring(8).replace(/^[/\\]/, '').replace(/[/\\]$/, '');
+                        $input.val(word);
+                        $btn.click();
+                    }
+                });
+                
+            }, function(err) {
+                console.error(err);
+                $def.html('<div style="color:red; text-align:center;">Lookup Error</div>');
             });
-            
-          } else {
-            $def.html('<div style="text-align:center; margin-top:40px; color:#FF9500;">No definition found</div>');
-          }
-        }, function(err) {
-            console.error(err);
-            $def.html('<div style="color:red; text-align:center;">Search Error</div>');
+
         });
       });
 
