@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="robots" content="noindex">
-  <title>MDict Fullscreen</title>
+  <title>MDict Online</title>
   
   <link rel="stylesheet" type="text/css" href="selectize.default.css">
 
@@ -53,10 +53,21 @@
       background: #fff; 
       border-bottom: 1px solid var(--border);
       display: flex; gap: 8px; align-items: center;
+      z-index: 90; /* 确保在内容之上 */
     }
 
     /* Selectize 样式微调 */
-    .selectize-control { flex: 1; height: 44px; }
+    .selectize-control { flex: 1; height: 44px; position: relative; }
+    
+    /* 🔴 关键修复：确保下拉框层级最高，不被遮挡 */
+    .selectize-dropdown {
+        z-index: 99999 !important; 
+        margin-top: 5px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        border-radius: 10px;
+        border: none;
+    }
+    
     .selectize-input {
       border-radius: 10px !important;
       border: 1px solid #D1D1D6 !important;
@@ -66,13 +77,11 @@
       box-shadow: none !important;
       height: 44px !important;
       line-height: 22px !important;
+      display: flex; align-items: center;
     }
     .selectize-input.focus { background: #fff !important; border-color: var(--primary) !important; }
-    .selectize-dropdown { 
-      border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); 
-      margin-top: 6px; z-index: 9999;
-    }
-    .selectize-dropdown-content .option { padding: 10px 12px; font-size: 15px; }
+    
+    .selectize-dropdown-content .option { padding: 12px 14px; font-size: 15px; border-bottom: 1px solid #f5f5f5; }
     .selectize-dropdown-content .active { background-color: #F2F2F7; color: #000; }
 
     /* 按钮 */
@@ -88,6 +97,7 @@
       flex: 1; overflow-y: auto; padding: 20px; 
       line-height: 1.6; font-size: 16px; background: #fff;
       -webkit-overflow-scrolling: touch;
+      position: relative; z-index: 1;
     }
     
     #definition b, #definition strong { color: var(--primary); }
@@ -105,7 +115,8 @@
   <header>
       <div id="status-area">⏳ Init...</div>
       <h2>Dictionary</h2>
-      <div style="width: 40px;"></div> <div class="progress-track" id="p-track"><div class="progress-fill" id="p-fill"></div></div>
+      <div style="width: 40px;"></div>
+      <div class="progress-track" id="p-track"><div class="progress-fill" id="p-fill"></div></div>
   </header>
 
   <div class="search-wrapper">
@@ -120,7 +131,6 @@
   <script src="require.js"></script>
   
   <script>
-    // 1. 配置
     require.config({
       baseUrl: '.',
       paths: {
@@ -143,7 +153,7 @@
 
     requirejs.onError = function (err) {
         document.getElementById('status-area').innerText = "Error";
-        alert("Missing: " + err.requireModules);
+        alert("Missing Module: " + err.requireModules);
     };
 
     require(['jquery', 'mdict-parser', 'mdict-renderer', 'selectize', 'bluebird'], function($, MdictParser, MdictRenderer, Selectize, Promise) {
@@ -155,7 +165,6 @@
       const $input = $('#word');
       const $btn = $('#btnLookup');
       const $def = $('#definition');
-      const $pTrack = $('#p-track');
       const $pFill = $('#p-fill');
       
       let mdictInstance = null;
@@ -188,7 +197,6 @@
       async function loadDictionary() {
         try {
           $status.text(`Downloading...`);
-          $pTrack.show();
           
           const [blobMDX, blobMDD] = await Promise.all([
               fetchFile(MDX_URL, true), 
@@ -202,9 +210,10 @@
           mdictInstance = MdictRenderer(resources);
           
           $status.text(`Ready`).addClass('success');
-          $pTrack.fadeOut();
+          $('#p-track').fadeOut();
           
-          initSelectize(); // 🟢 初始化联想输入
+          // 初始化联想输入
+          initSelectize();
           
           $btn.prop('disabled', false);
           $('#definition').html('<div style="text-align:center; color:#ccc; margin-top:100px;">Type a word to search</div>');
@@ -217,46 +226,71 @@
       }
 
       function initSelectize() {
+          // 先尝试销毁可能存在的实例
+          if ($input[0].selectize) $input[0].selectize.destroy();
+
           const $s = $input.selectize({
               valueField: 'word',
               labelField: 'word',
               searchField: 'word',
-              create: true, // 允许输入词典里没有的词
-              createOnBlur: true,
+              create: true,  // 允许手动输入完整单词
               maxItems: 1,
               placeholder: "Type a word...",
-              loadThrottle: 200,
+              loadThrottle: 300, // 延迟300ms触发搜索
               
+              // 🔴 核心：动态加载候选词
               load: function(query, callback) {
-                  if (!query.length || !mdictInstance) return callback();
+                  if (!query || query.length < 1 || !mdictInstance) return callback();
                   
-                  // 1. 调用 search 获取候选词
-                  mdictInstance.search({phrase: query, max: 15}).then(function(candidates) {
-                      const results = candidates.map(item => {
-                          return { word: item.keyText };
+                  // 在控制台打印，方便调试
+                  console.log("Searching for suggestion:", query);
+
+                  // 调用 search 获取候选词 (模糊匹配)
+                  mdictInstance.search({phrase: query, max: 20}).then(function(candidates) {
+                      console.log("Suggestions found:", candidates);
+                      
+                      // 数据格式转换：保证 Selectize 能读懂
+                      const results = candidates.map(function(item) {
+                          // item 可能是 {keyText: "apple", offset: 123} 也可能是 "apple"
+                          const w = item.keyText ? item.keyText : item;
+                          return { word: w };
                       });
+                      
                       callback(results);
-                  }).catch(() => { callback(); });
+                      
+                  }).catch(function(err) {
+                      console.error("Search error:", err);
+                      callback();
+                  });
               },
               
               onChange: function(value) {
                   if(value) performLookup(value);
+              },
+              
+              // 渲染下拉选项的样式
+              render: {
+                  option: function(item, escape) {
+                      return '<div class="option">' + escape(item.word) + '</div>';
+                  }
               }
           });
           
           selectizeInstance = $s[0].selectize;
 
-          // 🔴 关键修复：监听 Selectize 输入框的回车键
-          // 因为 Selectize 隐藏了原输入框，我们必须监听它生成的 input
+          // 🔴 修复回车键：监听 Selectize 生成的 input
           $('.selectize-input input').on('keydown', function(e) {
              if (e.which === 13) {
                  e.preventDefault();
-                 // 获取当前输入的值（即使没有选中下拉项）
-                 const val = selectizeInstance.getValue() || $(this).val();
+                 // 获取输入值 (优先取下拉选中的，没有就取输入的文本)
+                 let val = selectizeInstance.getValue();
+                 if (!val) val = $(this).val(); 
+                 
                  if(val) {
-                     selectizeInstance.setTextboxValue(val); // 确保值同步
+                     // 关闭下拉并搜索
+                     selectizeInstance.setTextboxValue(val);
+                     selectizeInstance.close();
                      performLookup(val);
-                     selectizeInstance.close(); // 关闭下拉
                  }
              }
           });
@@ -264,39 +298,51 @@
 
       function performLookup(query) {
           if (!query || !mdictInstance) return;
+          
+          // 如果用户输入了空格，去掉
+          query = query.trim();
+          
           $def.html('<div style="text-align:center; color:#999; margin-top:50px;">Searching...</div>');
           
-          // 2. 调用 lookup 显示内容
+          // 1. 先尝试直接 lookup
           mdictInstance.lookup(query).then(function($content) {
-              $def.empty().append($content);
-              
-              // 内部链接跳转
-              $def.find('a').on('click', function(e) {
-                  const href = $(this).attr('href');
-                  if (href && href.startsWith('entry://')) {
-                      e.preventDefault();
-                      const word = href.substring(8).replace(/^[/\\]/, '').replace(/[/\\]$/, '');
-                      if(selectizeInstance) {
-                          selectizeInstance.setValue(word);
-                      } else {
-                          performLookup(word);
-                      }
-                  }
-              });
+             renderResult($content);
           }, function() {
-              $def.html('<div style="text-align:center; margin-top:50px; color:#FF9500;">No definition found</div>');
+             // 2. 如果 lookup 失败，尝试先 fuzzy search 找到最接近的词，再 lookup
+             mdictInstance.search({phrase: query, max: 1}).then(function(candidates){
+                 if(candidates && candidates.length > 0) {
+                     const best = candidates[0];
+                     const bestWord = best.keyText || best;
+                     // 再查一次
+                     mdictInstance.lookup(bestWord).then(renderResult);
+                 } else {
+                     $def.html('<div style="text-align:center; margin-top:50px; color:#FF9500;">No definition found</div>');
+                 }
+             });
+          });
+      }
+      
+      function renderResult($content) {
+          $def.empty().append($content);
+          // 处理内部跳转
+          $def.find('a').on('click', function(e) {
+              const href = $(this).attr('href');
+              if (href && href.startsWith('entry://')) {
+                  e.preventDefault();
+                  const word = href.substring(8).replace(/^[/\\]/, '').replace(/[/\\]$/, '');
+                  
+                  if(selectizeInstance) {
+                      selectizeInstance.setValue(word);
+                  } else {
+                      performLookup(word);
+                  }
+              }
           });
       }
 
       $btn.click(function() {
-          // 获取 Selectize 的值，如果没有选，就获取当前输入的文本
-          let val = selectizeInstance ? selectizeInstance.getValue() : $input.val();
-          
-          // 如果用户只打字没回车也没选，getValue可能为空，尝试获取文本框的值
-          if (!val && selectizeInstance) {
-              val = $('.selectize-input input').val();
-          }
-
+          let val = selectizeInstance ? selectizeInstance.getValue() : '';
+          if (!val) val = $('.selectize-input input').val(); // 获取手动输入的值
           if(val) performLookup(val);
       });
 
